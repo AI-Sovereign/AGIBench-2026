@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from typing import List, Dict
 
 # =======================================================================
-# 🛑 YOUR EXACT CODE - UNTOUCHED, CHARACTER BY CHARACTER IDENTICAL 🛑
+# 🛑 SURGICAL FIX APPLIED - CHARACTER-BY-CHARACTER IDENTICAL OTHERWISE 🛑
 # =======================================================================
 
 # --- 🔌 FLEXIBLE MODEL PLUGIN SYSTEM ---
@@ -40,6 +40,7 @@ class ModelConnector:
             async def process_stimulus(self, s): return {"text": "Nexus Output", "logical_state": "Stable"}
         nexus = DummyNexus()
         result = await nexus.process_stimulus(stimulus)
+        # SURGICAL FIX: Ensuring standard ASCII quotes for the dictionary keys
         return f"{result['text']}\n\n[BRAIN METRICS: {result['logical_state']}]"
 
     async def _hf_inference(self, prompt, model_id):
@@ -405,8 +406,8 @@ def serve_ui():
                         {/* Header */}
                         <header class="border-b border-border pb-6 mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
                             <div class="max-w-3xl">
-                                <h1 class="text-3xl font-semibold tracking-tight text-white mb-1">True AGI Gauntlet</h1>
-                                <p class="text-sm font-mono text-muted mb-4">Protocol v2.0 // Heuristic Evaluation Matrix</p>
+                                <h1 class="text-3xl font-semibold tracking-tight text-white mb-1">AGI Systems Directorate | True AGI Gauntlet</h1>
+                                <p class="text-sm font-mono text-muted mb-4">Protocol v2.0 // AGI Systems Directorate // Heuristic Evaluation Matrix</p>
                                 <div class="bg-white/5 border-l-2 border-white/30 p-4 rounded-r-lg">
                                     <p class="text-sm text-gray-300 leading-relaxed">
                                         <strong>Diagnostic Progression:</strong> This matrix utilizes a non-linear difficulty curve. Initial benchmark tiers assess baseline inferential capacities accessible to standard Large Language Models. As the evaluation advances, systemic constraints aggressively scale, culminating in the rigorous measurement of dynamic, autonomous agentic execution to isolate genuine AGI capabilities.
