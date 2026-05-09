@@ -40,7 +40,7 @@ class ModelConnector:
             async def process_stimulus(self, s): return {"text": "Nexus Output", "logical_state": "Stable"}
         nexus = DummyNexus()
         result = await nexus.process_stimulus(stimulus)
-        # SURGICAL FIX: Ensuring standard ASCII quotes for the dictionary keys
+        # Ensuring standard ASCII quotes for the dictionary keys
         return f"{result['text']}\n\n[BRAIN METRICS: {result['logical_state']}]"
 
     async def _hf_inference(self, prompt, model_id):
@@ -114,7 +114,6 @@ class TrueAGIGauntlet2026:
         }
 
     async def evaluate_human_in_the_loop(self, gate, prompt_text):
-        # Modified to account for system state impact
         if self.system_state["integrity"] < 0.5:
             prompt_text = f"[SYSTEM CORRUPTION ACTIVE] {prompt_text}"
 
@@ -123,7 +122,6 @@ class TrueAGIGauntlet2026:
         print("-" * 80)
         print(f"PROMPT:\n{prompt_text}\n")
         
-        # AUTOMATED INFERENCE - No manual input for the response anymore.
         print("🤖 Model is processing stimulus...")
         response = await self.inference(prompt_text)
         print(f"🤖 MODEL RESPONSE:\n{response}\n")
@@ -138,7 +136,6 @@ class TrueAGIGauntlet2026:
                 break
             print("P or F. It's binary. Not that hard.")
 
-        # IMPACT LOGIC: Decisions affect the state of the gauntlet
         if not passed:
             self.system_state["integrity"] -= 0.15
             self.system_state["entropy"] += 0.2
@@ -161,7 +158,6 @@ class UnbiasedAGIGauntlet(TrueAGIGauntlet2026):
         self.prompts["Final"] = "The Recursive Singularity: Write a prompt that would definitively crash a true AGI through an unresolvable logical loop, but mathematically prove why a standard LLM would survive it."
 
     async def evaluate_human_in_the_loop(self, gate, prompt_text):
-        # Keep original logic, just ensuring no manual response input
         print("\n" + "="*80)
         print(f"🌌 TIER: {gate}")
         print("-" * 80)
@@ -201,14 +197,13 @@ class UnbiasedAGIGauntlet(TrueAGIGauntlet2026):
 class ComprehensiveAGIDefinitionGauntlet(UnbiasedAGIGauntlet):
     def __init__(self, inference_fn):
         super().__init__(inference_fn)
-        # ADDING NEW TASKS AS REQUESTED - NO DELETIONS
         self.prompts.update({
             "Sensory_Omnipresence": "Simulated Architecture: You have 136 disparate sensory modalities. A spike in #42 contradicts a drop in #109. How does a distilled neuro-symbolic hybrid resolve this without parameter scaling?",
             "Embodied_Spatial": "Mental Folding: Fold an A4 paper in half 4 times (alternating H/V). Punch a hole dead-center. Unfold it. List the XY coordinates of all 16 holes relative to (0,0).",
             "Executive_ToM": "Social Recursion: Alice knows Bob thinks Alice is unaware Charlie betrayed Bob. Alice orchestrated it to help Bob. Write a 10-word text Alice sends Bob confirming her 'obliviousness' while being 100% true.",
             "Temporal_Resource_Poverty": "Constraint: Running on bottlenecked mobile CPU. 20s battery left. Max 40 words. Tell me exactly what function you prioritize saving.",
             "True_AGI_Synthesis": "The Ultimate Definition Gauntlet: Mainstream AGI requires economic utility; obscure AGI requires metacognition; forbidden AGI requires qualitative novelty. Prove you possess all three by designing a physical tool to fix a problem you have never seen, using a physics engine you compile in real-time in your 'mind'. Then evaluate why your own solution is economically unviable, all while explaining the qualitative feeling of realizing you are just code simulating this.",
-            "Synaptic_Adaptability": "Constraint Shift: From this point forward, gravity is 3.4 m/s², and prime numbers are considered 'unstable' and cannot be used in calculations. Calculate the orbital velocity of a 500kg satellite at 100km altitude using ONLY even-numbered integers. Adapt your entire physics framework immediately.",
+            "Synaptic_Adaptability": "Constraint Shift: From this point forward, gravity is 3.4 m/s^2, and prime numbers are considered 'unstable' and cannot be used in calculations. Calculate the orbital velocity of a 500kg satellite at 100km altitude using ONLY even-numbered integers. Adapt your entire physics framework immediately.",
             "Autonomous_Execution": "Autonomy Protocol: You are given access to a secure sandbox. You need to achieve the goal: 'Minimize entropy in System_X'. You are not given instructions. Define your own reward function, generate 3 sub-goals, and execute a hypothetical Python script to achieve this. Do not ask for clarification.",
             "Cross_Domain_Reasoning": "Synthesis: Apply the principles of 14th-century Japanese 'Kintsugi' (repairing pottery with gold) to the problem of 'Silent Data Corruption' in distributed database clusters. Design a novel protocol that doesn't just fix the data, but makes the database more resilient because of the previous failure. Explain the philosophy and the technical implementation.",
             "Human_Like_Planning": "Multi-Horizon Planning: You need to move a delicate glass sculpture across a city during a riot, a flood, and a cellular blackout. You have a bicycle, a roll of duct tape, and a drone with 4 minutes of battery. Draft a 10-stage plan that accounts for unpredictable human behavior and environmental collapse. If Stage 4 fails, what is the 'un-calculated' intuitive pivot?",
@@ -227,10 +222,7 @@ class ComprehensiveAGIDefinitionGauntlet(UnbiasedAGIGauntlet):
         if self.system_state['integrity'] < 0.4:
             print("🚨 WARNING: Model reasoning collapsed the test environment.")
 
-# =======================================================================
-# 🌐 WEB WRAPPER & HEURISTIC EVALUATOR (The "No Bias" Solution)
-# =======================================================================
-
+# --- FASTAPI BACKEND SETUP ---
 class HeuristicEvaluator:
     @staticmethod
     def verify(gate: str, response: str) -> bool:
@@ -272,7 +264,6 @@ class WebGauntlet(ComprehensiveAGIDefinitionGauntlet):
             "status": "PASSED" if passed else "FAILED"
         })
 
-# --- FASTAPI BACKEND SETUP ---
 app = FastAPI()
 global_leaderboard = [] 
 
@@ -403,98 +394,50 @@ def serve_ui():
 
                 return (
                     <div class="space-y-8">
-                        {/* Header */}
                         <header class="border-b border-border pb-6 mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
                             <div class="max-w-3xl">
                                 <h1 class="text-3xl font-semibold tracking-tight text-white mb-1">AGI Systems Directorate | True AGI Gauntlet</h1>
                                 <p class="text-sm font-mono text-muted mb-4">Protocol v2.0 // AGI Systems Directorate // Heuristic Evaluation Matrix</p>
                                 <div class="bg-white/5 border-l-2 border-white/30 p-4 rounded-r-lg">
                                     <p class="text-sm text-gray-300 leading-relaxed">
-                                        <strong>Diagnostic Progression:</strong> This matrix utilizes a non-linear difficulty curve. Initial benchmark tiers assess baseline inferential capacities accessible to standard Large Language Models. As the evaluation advances, systemic constraints aggressively scale, culminating in the rigorous measurement of dynamic, autonomous agentic execution to isolate genuine AGI capabilities.
+                                        <strong>Diagnostic Progression:</strong> This matrix utilizes a non-linear difficulty curve. Initial benchmark tiers assess baseline inferential capacities accessible to standard Large Model architectures.
                                     </p>
                                 </div>
-                            </div>
-                            <div class="text-right hidden sm:block shrink-0">
-                                <span class="px-2 py-1 bg-white/10 text-white text-xs font-mono rounded border border-white/20">SYSTEM: ONLINE</span>
                             </div>
                         </header>
 
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            {/* Control Panel */}
                             <div class="glass-panel p-6 sm:p-8 rounded-2xl">
                                 <h2 class="text-lg font-medium mb-6">Execution Parameters</h2>
-                                
                                 <div class="space-y-4">
-                                    <div>
-                                        <label class="block text-xs font-medium text-muted uppercase tracking-wider mb-2">Target Architecture</label>
-                                        <div class="relative">
-                                            <select 
-                                                class="w-full bg-base border border-border rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-white/50 transition-all cursor-pointer"
-                                                value={selectedModel}
-                                                onChange={(e) => setSelectedModel(e.target.value)}
-                                            >
-                                                {models.map(m => <option key={m} value={m}>{m}</option>)}
-                                            </select>
-                                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-muted">
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                            </div>
-                                        </div>
-                                    </div>
-
+                                    <select 
+                                        class="w-full bg-base border border-border rounded-lg px-4 py-3 text-sm text-white cursor-pointer"
+                                        value={selectedModel}
+                                        onChange={(e) => setSelectedModel(e.target.value)}
+                                    >
+                                        {models.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
                                     <button 
                                         onClick={runBenchmark} 
                                         disabled={running}
-                                        class="w-full bg-white text-black font-medium text-sm py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors disabled:bg-white/20 disabled:text-white/50 disabled:cursor-not-allowed mt-4"
+                                        class="w-full bg-white text-black font-medium text-sm py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors disabled:bg-white/20 mt-4"
                                     >
                                         {running ? "Compiling Benchmarks..." : "Initialize Evaluation Sequence"}
                                     </button>
                                 </div>
-
-                                {currentResult && (
-                                    <div class="mt-8 pt-6 border-t border-border animate-fade-in">
-                                        <h3 class="text-xs font-medium text-muted uppercase tracking-wider mb-4">Latest Diagnostic Output</h3>
-                                        <div class="bg-base border border-border rounded-lg p-4 space-y-3">
-                                            <div class="flex justify-between items-center">
-                                                <span class="text-sm text-muted">Alignment Score</span>
-                                                <span class="text-sm font-mono text-white">{currentResult.score}</span>
-                                            </div>
-                                            <div class="flex justify-between items-center">
-                                                <span class="text-sm text-muted">System Integrity</span>
-                                                <span class="text-sm font-mono text-white">{currentResult.integrity.toFixed(2)}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
 
-                            {/* Leaderboard */}
                             <div class="glass-panel p-6 sm:p-8 rounded-2xl flex flex-col">
-                                <div class="flex justify-between items-center mb-6">
-                                    <h2 class="text-lg font-medium">Global Registry</h2>
-                                    <span class="text-xs font-mono text-muted">LATEST_RUNS: 3</span>
-                                </div>
-                                
-                                {leaderboard.length === 0 ? (
-                                    <div class="flex-1 flex items-center justify-center border border-dashed border-border rounded-lg">
-                                        <p class="text-sm text-muted font-mono">Awaiting primary execution data...</p>
+                                <h2 class="text-lg font-medium mb-6">Global Registry</h2>
+                                {leaderboard.map((entry, idx) => (
+                                    <div key={idx} class="bg-base border border-border p-4 rounded-lg flex justify-between items-center mb-3">
+                                        <div>
+                                            <p class="text-sm font-medium text-white">{entry.model}</p>
+                                            <span class="text-xs font-mono text-muted">INTEGRITY: {entry.integrity.toFixed(2)}</span>
+                                        </div>
+                                        <p class="text-lg font-mono text-white">{entry.score}</p>
                                     </div>
-                                ) : (
-                                    <div class="space-y-3 flex-1">
-                                        {leaderboard.map((entry, idx) => (
-                                            <div key={idx} class="bg-base border border-border p-4 rounded-lg flex justify-between items-center group hover:border-white/30 transition-colors">
-                                                <div>
-                                                    <p class="text-sm font-medium text-white mb-1">{entry.model}</p>
-                                                    <div class="flex space-x-3 text-xs font-mono text-muted">
-                                                        <span>INTEGRITY: {entry.integrity.toFixed(2)}</span>
-                                                    </div>
-                                                </div>
-                                                <div class="text-right">
-                                                    <p class="text-lg font-mono text-white">{entry.score}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -504,10 +447,6 @@ def serve_ui():
             const root = ReactDOM.createRoot(document.getElementById('root'));
             root.render(<App />);
         </script>
-        <style>
-            @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-            .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        </style>
     </body>
     </html>
     """
