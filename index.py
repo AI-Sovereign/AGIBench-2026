@@ -56,10 +56,14 @@ class ModelConnector:
                     headers=headers,
                     json={"inputs": prompt, "parameters": {"max_new_tokens": 512, "return_full_text": False}}
                 )
+                
+                if resp.status_code != 200:
+                    return f"HF Server HTTP Error {resp.status_code}: {resp.text}"
+                    
                 data = resp.json()
-                if isinstance(data, list) and "generated_text" in data[0]:
+                if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
                     return data[0]["generated_text"].strip()
-                elif "error" in data:
+                elif isinstance(data, dict) and "error" in data:
                     return f"HF Error: {data['error']}"
                 return str(data)
             except Exception as e: return f"HuggingFace Error: {str(e)}"
@@ -78,7 +82,10 @@ class ModelConnector:
                     f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
                     json={"contents": [{"parts": [{"text": prompt}]}]}
                 )
-                return resp.json()['candidates'][0]['content']['parts'][0]['text']
+                data = resp.json()
+                if "error" in data:
+                    return f"Google API Error: {data['error'].get('message', 'Unknown Error')}"
+                return data['candidates'][0]['content']['parts'][0]['text']
             except Exception as e: return f"Google Error: {str(e)}"
 
     async def _custom_endpoint_inference(self, prompt):
