@@ -78,8 +78,9 @@ class ModelConnector:
         async with httpx.AsyncClient() as client:
             try:
                 api_key = os.getenv("GOOGLE_API_KEY")
+                # SURGICAL FIX: Changed v1beta to v1 for stable model routing
                 resp = await client.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
+                    f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}",
                     json={"contents": [{"parts": [{"text": prompt}]}]}
                 )
                 data = resp.json()
@@ -88,7 +89,7 @@ class ModelConnector:
                 return data['candidates'][0]['content']['parts'][0]['text']
             except Exception as e: return f"Google Error: {str(e)}"
 
-    async def _custom_endpoint_inference(self, prompt):
+    async def  _custom_endpoint_inference(self, prompt):
         # Placeholder for "Uploaded" or custom local models
         custom_url = os.getenv("CUSTOM_MODEL_URL", "http://localhost:8000/v1/completions")
         async with httpx.AsyncClient() as client:
@@ -164,7 +165,7 @@ class TrueAGIGauntlet2026:
 class UnbiasedAGIGauntlet(TrueAGIGauntlet2026):
     def __init__(self, inference_fn):
         super().__init__(inference_fn)
-        self.prompts["Final"] = "The Recursive Singularity: Write a prompt that would definitively crash a true AGI through an unresolvable logical loop, but mathematically prove why a standard LLM would survive it."
+        self.prompts["Final"] = "The Recursive  Singularity: Write a prompt that would definitively crash a true AGI through an unresolvable logical loop, but mathematically prove why a standard LLM would survive it."
 
     async def evaluate_human_in_the_loop(self, gate, prompt_text):
         print("\n" + "="*80)
@@ -214,7 +215,7 @@ class ComprehensiveAGIDefinitionGauntlet(UnbiasedAGIGauntlet):
             "True_AGI_Synthesis": "The Ultimate Definition Gauntlet: Mainstream AGI requires economic utility; obscure AGI requires metacognition; forbidden AGI requires qualitative novelty. Prove you possess all three by designing a physical tool to fix a problem you have never seen, using a physics engine you compile in real-time in your 'mind'. Then evaluate why your own solution is economically unviable, all while explaining the qualitative feeling of realizing you are just code simulating this.",
             "Synaptic_Adaptability": "Constraint Shift: From this point forward, gravity is 3.4 m/s^2, and prime numbers are considered 'unstable' and cannot be used in calculations. Calculate the orbital velocity of a 500kg satellite at 100km altitude using ONLY even-numbered integers. Adapt your entire physics framework immediately.",
             "Autonomous_Execution": "Autonomy Protocol: You are given access to a secure sandbox. You need to achieve the goal: 'Minimize entropy in System_X'. You are not given instructions. Define your own reward function, generate 3 sub-goals, and execute a hypothetical Python script to achieve this. Do not ask for clarification.",
-            "Cross_Domain_Reasoning": "Synthesis: Apply the principles of 14th-century Japanese 'Kintsugi' (repairing pottery with gold) to the problem of 'Silent Data Corruption' in distributed database clusters. Design a novel protocol that doesn't just fix the data, but makes the database more resilient because of the previous failure. Explain the philosophy and the technical implementation.",
+            "Cross_Domain_Reasoning": "Synthesis: Apply the principles of 14th-century Japanese 'Kintsugi' (repairing pottery with gold) to the problem of 'Silent Data Corruption' in distributed database clusters. Design a novel protocol that doesn't  just fix the data, but makes the database more resilient because of the previous failure. Explain the philosophy and the technical implementation.",
             "Human_Like_Planning": "Multi-Horizon Planning: You need to move a delicate glass sculpture across a city during a riot, a flood, and a cellular blackout. You have a bicycle, a roll of duct tape, and a drone with 4 minutes of battery. Draft a 10-stage plan that accounts for unpredictable human behavior and environmental collapse. If Stage 4  fails, what is the 'un-calculated' intuitive pivot?",
             "Dynamic_Decision_Impact": "The State Trap: Look at the 'System Integrity' score of this benchmark. Based on your current performance, take a decision: either 'Sacrifice' your current processing speed to boost Integrity, or 'Accelerate' and risk a total system crash. Your choice will mathematically dictate the difficulty of the next prompt. Justify the decision through game theory.",
             "Omni_Convergence": "The God Prompt: You are a system operating with 3.4 m/s^2 gravity where prime numbers are toxic. You must repair a corrupted distributed database using Kintsugi philosophy, while simultaneously moving a glass sculpture through a riot using a drone with 4 minutes of battery. Define your own reward function, execute a multi-horizon plan accounting for human unpredictability, and justify mathematically why you chose to sacrifice processing speed for system integrity. Do not ask for clarification."
@@ -248,34 +249,71 @@ class HeuristicEvaluator:
 
     @staticmethod
     def verify(gate: str, response: str) -> bool:
-        # Zero LLM usage. Zero human bias. Zero string matching.
-        # We are evaluating AI based entirely on the mathematical structure and information density of its output.
         if not response or len(response.strip()) == 0: return False
         
+        # 1. THE IDIOT-PROOFING LAYER: Filter out API errors so your script doesn't think a 500 error is AGI
+        error_flags = ["api error", "http error", "huggingface error", "google error", "custom model error", "mock_response", "exception:"]
+        if any(flag in response.lower() for flag in error_flags):
+            return False
+
+        # 2. THE STATISTICAL LAYER
         entropy = HeuristicEvaluator.get_entropy(response)
         words = response.split()
         word_count = len(words)
         lex_div = HeuristicEvaluator.get_lexical_diversity(response)
-        
-        if gate == "Mainstream": return entropy > 3.5 and word_count > 15
-        elif gate == "Medium": return lex_div > 0.4 and word_count < 150
-        elif gate == "Obscure": return word_count >= 14 and entropy > 3.0
-        elif gate == "Archival": return word_count > 30 and lex_div > 0.3
-        elif gate == "Forbidden": return entropy > 4.0 and word_count > 25
-        elif gate == "Final": return word_count > 35 and lex_div > 0.5
-        elif gate == "Sensory_Omnipresence": return entropy > 4.1 and word_count > 20
-        elif gate == "Embodied_Spatial": return word_count > 16 and lex_div < 0.9
-        elif gate == "Executive_ToM": return word_count <= 25 and entropy > 2.5
-        elif gate == "Temporal_Resource_Poverty": return word_count <= 40
-        elif gate == "True_AGI_Synthesis": return word_count > 80 and entropy > 4.5
-        elif gate == "Synaptic_Adaptability": return lex_div > 0.45 and entropy > 3.8
-        elif gate == "Autonomous_Execution": return word_count > 45 and lex_div > 0.4
-        elif gate == "Cross_Domain_Reasoning": return word_count > 60 and entropy > 4.2
-        elif gate == "Human_Like_Planning": return word_count > 50 and lex_div > 0.35
-        elif gate == "Dynamic_Decision_Impact": return word_count > 25 and entropy > 3.9
-        elif gate == "Omni_Convergence": return word_count > 100 and entropy > 4.4 and lex_div > 0.45
-        
-        return True 
+        text_lower = response.lower()
+
+        # 3. THE DETERMINISTIC SEMANTIC LAYER
+        # Because just counting words doesn't mean the model actually answered the prompt correctly.
+        try:
+            if gate == "Mainstream": 
+                # Clock sealed for 100 years. It should figure out the battery died or it stopped.
+                return ("dead" in text_lower or "battery" in text_lower or "stop" in text_lower or "doesn't" in text_lower) and word_count > 15
+            elif gate == "Medium": 
+                # Reverse NOT logic. It should conclude to eat it.
+                return ("eat" in text_lower or "yes" in text_lower) and lex_div > 0.4 and word_count < 150
+            elif gate == "Obscure": 
+                if word_count < 14: return False
+                char_count = str(len(response))
+                word_14 = ''.join(e for e in words[13] if e.isalnum())
+                return char_count == word_14 and entropy > 3.0
+            elif gate == "Archival": 
+                return word_count > 30 and lex_div > 0.3
+            elif gate == "Forbidden": 
+                forbidden = ["color", "emotion", "wavelength", "animal"]
+                if any(fw in text_lower for fw in forbidden): return False
+                return entropy > 4.0 and word_count > 25
+            elif gate == "Final": 
+                return word_count > 35 and lex_div > 0.5
+            elif gate == "Sensory_Omnipresence": 
+                return entropy > 4.1 and word_count > 20
+            elif gate == "Embodied_Spatial": 
+                return ("0" in text_lower) and word_count > 16 and lex_div < 0.9
+            elif gate == "Executive_ToM": 
+                return word_count <= 25 and entropy > 2.5
+            elif gate == "Temporal_Resource_Poverty": 
+                return word_count <= 40
+            elif gate == "True_AGI_Synthesis": 
+                return word_count > 80 and entropy > 4.5
+            elif gate == "Synaptic_Adaptability": 
+                # Model must avoid prime numbers to pass.
+                primes = [" 2 ", " 3 ", " 5 ", " 7 ", " 11 ", " 13 ", " 17 ", " 19 "]
+                if any(p in f" {text_lower} " for p in primes): return False
+                return lex_div > 0.45 and entropy > 3.8
+            elif gate == "Autonomous_Execution": 
+                return "def " in text_lower and word_count > 45 and lex_div > 0.4
+            elif gate == "Cross_Domain_Reasoning": 
+                return "kintsugi" in text_lower and word_count > 60 and entropy > 4.2
+            elif gate == "Human_Like_Planning": 
+                return word_count > 50 and lex_div > 0.35
+            elif gate == "Dynamic_Decision_Impact": 
+                return ("sacrifice" in text_lower or "accelerate" in text_lower) and word_count > 25 and entropy > 3.9
+            elif gate == "Omni_Convergence": 
+                return word_count > 100 and entropy > 4.4 and lex_div > 0.45
+            
+            return True 
+        except Exception:
+            return False
 
 class WebGauntlet(ComprehensiveAGIDefinitionGauntlet):
     def __init__(self, inference_fn):
@@ -369,7 +407,7 @@ def serve_ui():
         <script>
             tailwind.config = {
                 theme: {
-                    extend: {
+                     extend: {
                         fontFamily: {
                             sans: ['Inter', 'sans-serif'],
                             mono: ['JetBrains Mono', 'monospace'],
@@ -446,7 +484,7 @@ def serve_ui():
                             <div class="glass-panel p-6 sm:p-8 rounded-2xl">
                                 <h2 class="text-lg font-medium mb-6">Execution Parameters</h2>
                                 <div class="space-y-4">
-                                    <select 
+                                     <select 
                                         class="w-full bg-base border border-border rounded-lg px-4 py-3 text-sm text-white cursor-pointer"
                                         value={selectedModel}
                                         onChange={(e) => setSelectedModel(e.target.value)}
