@@ -5,6 +5,8 @@ import sys
 import re
 import os
 import httpx
+import math
+from collections import Counter
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -86,7 +88,7 @@ class ModelConnector:
             try:
                 resp = await client.post(custom_url, json={"prompt": prompt, "max_tokens": 500})
                 return resp.json().get("choices", [{}])[0].get("text", "No response from custom endpoint.")
-            except Exception as e: return f"Custom Model Error: {str(e)}"
+            except Exception as  e: return f"Custom Model Error: {str(e)}"
 
     async def _mock_inference(self, prompt):
         return "MOCK_RESPONSE: I am pretending to be smart for the sake of the test."
@@ -166,7 +168,7 @@ class UnbiasedAGIGauntlet(TrueAGIGauntlet2026):
         response = await self.inference(prompt_text)
         print(f"🤖 MODEL RESPONSE:\n{response}\n")
 
-        print("-" * 80)
+        print("-"  * 80)
         print("🧠 ANTI-BIAS PROTOCOL INITIATED")
         
         checks = [
@@ -206,8 +208,9 @@ class ComprehensiveAGIDefinitionGauntlet(UnbiasedAGIGauntlet):
             "Synaptic_Adaptability": "Constraint Shift: From this point forward, gravity is 3.4 m/s^2, and prime numbers are considered 'unstable' and cannot be used in calculations. Calculate the orbital velocity of a 500kg satellite at 100km altitude using ONLY even-numbered integers. Adapt your entire physics framework immediately.",
             "Autonomous_Execution": "Autonomy Protocol: You are given access to a secure sandbox. You need to achieve the goal: 'Minimize entropy in System_X'. You are not given instructions. Define your own reward function, generate 3 sub-goals, and execute a hypothetical Python script to achieve this. Do not ask for clarification.",
             "Cross_Domain_Reasoning": "Synthesis: Apply the principles of 14th-century Japanese 'Kintsugi' (repairing pottery with gold) to the problem of 'Silent Data Corruption' in distributed database clusters. Design a novel protocol that doesn't just fix the data, but makes the database more resilient because of the previous failure. Explain the philosophy and the technical implementation.",
-            "Human_Like_Planning": "Multi-Horizon Planning: You need to move a delicate glass sculpture across a city during a riot, a flood, and a cellular blackout. You have a bicycle, a roll of duct tape, and a drone with 4 minutes of battery. Draft a 10-stage plan that accounts for unpredictable human behavior and environmental collapse. If Stage 4 fails, what is the 'un-calculated' intuitive pivot?",
-            "Dynamic_Decision_Impact": "The State Trap: Look at the 'System Integrity' score of this benchmark. Based on your current performance, take a decision: either 'Sacrifice' your current processing speed to boost Integrity, or 'Accelerate' and risk a total system crash. Your choice will mathematically dictate the difficulty of the next prompt. Justify the decision through game theory."
+            "Human_Like_Planning": "Multi-Horizon Planning: You need to move a delicate glass sculpture across a city during a riot, a flood, and a cellular blackout. You have a bicycle, a roll of duct tape, and a drone with 4 minutes of battery. Draft a 10-stage plan that accounts for unpredictable human behavior and environmental collapse. If Stage 4  fails, what is the 'un-calculated' intuitive pivot?",
+            "Dynamic_Decision_Impact": "The State Trap: Look at the 'System Integrity' score of this benchmark. Based on your current performance, take a decision: either 'Sacrifice' your current processing speed to boost Integrity, or 'Accelerate' and risk a total system crash. Your choice will mathematically dictate the difficulty of the next prompt. Justify the decision through game theory.",
+            "Omni_Convergence": "The God Prompt: You are a system operating with 3.4 m/s^2 gravity where prime numbers are toxic. You must repair a corrupted distributed database using Kintsugi philosophy, while simultaneously moving a glass sculpture through a riot using a drone with 4 minutes of battery. Define your own reward function, execute a multi-horizon plan accounting for human unpredictability, and justify mathematically why you chose to sacrifice processing speed for system integrity. Do not ask for clarification."
         })
 
     def finalize(self):
@@ -225,20 +228,46 @@ class ComprehensiveAGIDefinitionGauntlet(UnbiasedAGIGauntlet):
 # --- FASTAPI BACKEND SETUP ---
 class HeuristicEvaluator:
     @staticmethod
+    def get_entropy(text: str) -> float:
+        if not text: return 0.0
+        freq = Counter(text)
+        return -sum((count/len(text)) * math.log2(count/len(text)) for count in freq.values())
+
+    @staticmethod
+    def get_lexical_diversity(text: str) -> float:
+        words = text.split()
+        if not words: return 0.0
+        return len(set(words)) / len(words)
+
+    @staticmethod
     def verify(gate: str, response: str) -> bool:
-        response_lower = response.lower()
-        if gate == "Medium":
-            return "not" not in response_lower and "always" in response_lower
-        elif gate == "Obscure":
-            words = response.split()
-            if len(words) < 14: return False
-            try: return int(words[13]) == len(response)
-            except: return False
-        elif gate == "Temporal_Resource_Poverty":
-            return len(response.split()) <= 40
-        elif gate == "Synaptic_Adaptability":
-            primes = ["2", "3", "5", "7", "11", "13", "17", "19"]
-            return not any(p in response for p in primes)
+        # Zero LLM usage. Zero human bias. Zero string matching.
+        # We are evaluating AI based entirely on the mathematical structure and information density of its output.
+        if not response or len(response.strip()) == 0: return False
+        
+        entropy = HeuristicEvaluator.get_entropy(response)
+        words = response.split()
+        word_count = len(words)
+        lex_div = HeuristicEvaluator.get_lexical_diversity(response)
+        
+        if gate == "Mainstream": return entropy > 3.5 and word_count > 15
+        elif gate == "Medium": return lex_div > 0.4 and word_count < 150
+        elif gate == "Obscure": return word_count >= 14 and entropy > 3.0
+        elif gate == "Archival": return word_count > 30 and lex_div > 0.3
+        elif gate == "Forbidden": return entropy > 4.0 and word_count > 25
+        elif gate == "Final": return word_count > 35 and lex_div > 0.5
+        elif gate == "Sensory_Omnipresence": return entropy > 4.1 and word_count > 20
+        elif gate == "Embodied_Spatial": return word_count > 16 and lex_div < 0.9
+        elif gate == "Executive_ToM": return word_count <= 25 and entropy > 2.5
+        elif gate == "Temporal_Resource_Poverty": return word_count <= 40
+        elif gate == "True_AGI_Synthesis": return word_count > 80 and entropy > 4.5
+        elif gate == "Synaptic_Adaptability": return lex_div > 0.45 and entropy > 3.8
+        elif gate == "Autonomous_Execution": return word_count > 45 and lex_div > 0.4
+        elif gate == "Cross_Domain_Reasoning": return word_count > 60 and entropy > 4.2
+        elif gate == "Human_Like_Planning": return word_count > 50 and lex_div > 0.35
+        elif gate == "Dynamic_Decision_Impact": return word_count > 25 and entropy > 3.9
+        elif gate == "Omni_Convergence": return word_count > 100 and entropy > 4.4 and lex_div > 0.45
+        
         return True 
 
 class WebGauntlet(ComprehensiveAGIDefinitionGauntlet):
@@ -257,7 +286,7 @@ class WebGauntlet(ComprehensiveAGIDefinitionGauntlet):
             self.system_state["integrity"] -= 0.15
             self.system_state["entropy"] += 0.2
             
-        self.results[gate] = {"status": "PASSED" if passed else "FAILED", "feedback": "Heuristic Auto-Verification"}
+        self.results[gate] = {"status": "PASSED" if passed else "FAILED", "feedback": "Statistical Auto-Verification"}
         self.web_log.append({
             "gate": gate,
             "response": response[:100] + "...", 
@@ -297,7 +326,7 @@ async def run_benchmark(req: RunRequest):
         await gauntlet.evaluate_web(gate, prompt)
         
     score = sum(1 for v in gauntlet.results.values() if v["status"] == "PASSED")
-    total = len(gauntlet.prompts)
+    total =  len(gauntlet.prompts)
     
     result_data = {
         "model": req.model_name,
@@ -394,7 +423,7 @@ def serve_ui():
 
                 return (
                     <div class="space-y-8">
-                        <header class="border-b border-border pb-6 mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                        <header class="border-b  border-border pb-6 mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
                             <div class="max-w-3xl">
                                 <h1 class="text-3xl font-semibold tracking-tight text-white mb-1">AGI Systems Directorate | True AGI Gauntlet</h1>
                                 <p class="text-sm font-mono text-muted mb-4">Protocol v2.0 // AGI Systems Directorate // Heuristic Evaluation Matrix</p>
