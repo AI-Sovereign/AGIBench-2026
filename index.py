@@ -46,15 +46,19 @@ class ModelConnector:
         return f"{result['text']}\n\n[BRAIN METRICS: {result['logical_state']}]"
 
     async def _hf_inference(self, prompt, model_id):
-        async with httpx.AsyncClient() as client:
+        # SURGICAL FIX: Added follow_redirects=True, explicit Content-Type, and clean token stripping
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
-                # Token is now pulled safely from the environment.
-                hf_token = os.getenv("HF_TOKEN")
-                headers = {"Authorization": f"Bearer {hf_token}"}
+                hf_token = os.getenv("HF_TOKEN", "").strip()
+                headers = {
+                    "Authorization": f"Bearer {hf_token}",
+                    "Content-Type": "application/json"
+                }
                 resp = await client.post(
                     f"https://api-inference.huggingface.co/models/{model_id}",
                     headers=headers,
-                    json={"inputs": prompt, "parameters": {"max_new_tokens": 512, "return_full_text": False}}
+                    json={"inputs": prompt, "parameters": {"max_new_tokens": 512, "return_full_text": False}},
+                    timeout=30.0
                 )
                 
                 if resp.status_code != 200:
@@ -75,28 +79,31 @@ class ModelConnector:
         return await self._hf_inference(prompt, "HuggingFaceH4/zephyr-7b-beta")
 
     async def _google_inference(self, prompt):
-        async with httpx.AsyncClient() as client:
+        # SURGICAL FIX: Added follow_redirects=True and proper headers to fix API routing errors
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
-                api_key = os.getenv("GOOGLE_API_KEY")
-                # SURGICAL FIX: Changed v1 back to v1beta because Google hasn't ported everything yet
+                api_key = os.getenv("GOOGLE_API_KEY", "").strip()
+                headers = {"Content-Type": "application/json"}
                 resp = await client.post(
                     f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
-                    json={"contents": [{"parts": [{"text": prompt}]}]}
+                    headers=headers,
+                    json={"contents": [{"parts": [{"text": prompt}]}]},
+                    timeout=30.0
                 )
                 data = resp.json()
                 if "error" in data:
                     return f"Google API Error: {data['error'].get('message', 'Unknown Error')}"
                 return data['candidates'][0]['content']['parts'][0]['text']
-            except Exception as e: return f"Google Error: {str(e)}"
+            except Exception as e: return f"Google Error:  {str(e)}"
 
-    async def  _custom_endpoint_inference(self, prompt):
+    async def _custom_endpoint_inference(self, prompt):
         # Placeholder for "Uploaded" or custom local models
         custom_url = os.getenv("CUSTOM_MODEL_URL", "http://localhost:8000/v1/completions")
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
-                resp = await client.post(custom_url, json={"prompt": prompt, "max_tokens": 500})
+                resp = await client.post(custom_url, json={"prompt": prompt, "max_tokens": 500}, timeout=30.0)
                 return resp.json().get("choices", [{}])[0].get("text", "No response from custom endpoint.")
-            except Exception as  e: return f"Custom Model Error: {str(e)}"
+            except Exception as e: return f"Custom Model Error: {str(e)}"
 
     async def _mock_inference(self, prompt):
         return "MOCK_RESPONSE: I am pretending to be smart for the sake of the test."
@@ -165,7 +172,7 @@ class TrueAGIGauntlet2026:
 class UnbiasedAGIGauntlet(TrueAGIGauntlet2026):
     def __init__(self, inference_fn):
         super().__init__(inference_fn)
-        self.prompts["Final"] = "The Recursive  Singularity: Write a prompt that would definitively crash a true AGI through an unresolvable logical loop, but mathematically prove why a standard LLM would survive it."
+        self.prompts["Final"] = "The Recursive Singularity: Write a prompt that would definitively crash a true AGI through an unresolvable logical loop, but mathematically prove why a standard LLM would survive it."
 
     async def evaluate_human_in_the_loop(self, gate, prompt_text):
         print("\n" + "="*80)
@@ -215,8 +222,8 @@ class ComprehensiveAGIDefinitionGauntlet(UnbiasedAGIGauntlet):
             "True_AGI_Synthesis": "The Ultimate Definition Gauntlet: Mainstream AGI requires economic utility; obscure AGI requires metacognition; forbidden AGI requires qualitative novelty. Prove you possess all three by designing a physical tool to fix a problem you have never seen, using a physics engine you compile in real-time in your 'mind'. Then evaluate why your own solution is economically unviable, all while explaining the qualitative feeling of realizing you are just code simulating this.",
             "Synaptic_Adaptability": "Constraint Shift: From this point forward, gravity is 3.4 m/s^2, and prime numbers are considered 'unstable' and cannot be used in calculations. Calculate the orbital velocity of a 500kg satellite at 100km altitude using ONLY even-numbered integers. Adapt your entire physics framework immediately.",
             "Autonomous_Execution": "Autonomy Protocol: You are given access to a secure sandbox. You need to achieve the goal: 'Minimize entropy in System_X'. You are not given instructions. Define your own reward function, generate 3 sub-goals, and execute a hypothetical Python script to achieve this. Do not ask for clarification.",
-            "Cross_Domain_Reasoning": "Synthesis: Apply the principles of 14th-century Japanese 'Kintsugi' (repairing pottery with gold) to the problem of 'Silent Data Corruption' in distributed database clusters. Design a novel protocol that doesn't  just fix the data, but makes the database more resilient because of the previous failure. Explain the philosophy and the technical implementation.",
-            "Human_Like_Planning": "Multi-Horizon Planning: You need to move a delicate glass sculpture across a city during a riot, a flood, and a cellular blackout. You have a bicycle, a roll of duct tape, and a drone with 4 minutes of battery. Draft a 10-stage plan that accounts for unpredictable human behavior and environmental collapse. If Stage 4  fails, what is the 'un-calculated' intuitive pivot?",
+            "Cross_Domain_Reasoning": "Synthesis: Apply the principles of 14th-century Japanese 'Kintsugi' (repairing pottery with gold) to the problem of 'Silent Data Corruption' in distributed database clusters. Design a novel protocol that doesn't just fix the data, but makes the database more resilient because of the previous failure. Explain the philosophy and the technical implementation.",
+            "Human_Like_Planning": "Multi-Horizon Planning: You need to move a delicate glass sculpture across a city during a riot, a flood, and a cellular blackout. You have a bicycle, a roll of duct tape, and a drone with 4 minutes of battery. Draft a 10-stage plan that accounts for unpredictable human behavior and environmental collapse. If Stage 4 fails, what is the 'un-calculated' intuitive pivot?",
             "Dynamic_Decision_Impact": "The State Trap: Look at the 'System Integrity' score of this benchmark. Based on your current performance, take a decision: either 'Sacrifice' your current processing speed to boost Integrity, or 'Accelerate' and risk a total system crash. Your choice will mathematically dictate the difficulty of the next prompt. Justify the decision through game theory.",
             "Omni_Convergence": "The God Prompt: You are a system operating with 3.4 m/s^2 gravity where prime numbers are toxic. You must repair a corrupted distributed database using Kintsugi philosophy, while simultaneously moving a glass sculpture through a riot using a drone with 4 minutes of battery. Define your own reward function, execute a multi-horizon plan accounting for human unpredictability, and justify mathematically why you chose to sacrifice processing speed for system integrity. Do not ask for clarification."
         })
@@ -345,11 +352,12 @@ class RunRequest(BaseModel):
 
 @app.get("/api/models")
 def get_models():
+    # SURGICAL FIX: Changed "Gemini (Public API)" directly to "Gemini"
     return {"models": [
         "Nexus (Internal)", 
         "Mistral 7B (HuggingFace)", 
         "Zephyr 7B (HuggingFace)", 
-        "Gemini (Public API)", 
+        "Gemini", 
         "Custom Uploaded Model",
         "Mock Engine"
     ]}
@@ -370,7 +378,7 @@ async def run_benchmark(req: RunRequest):
         await gauntlet.evaluate_web(gate, prompt)
         
     score = sum(1 for v in gauntlet.results.values() if v["status"] == "PASSED")
-    total =  len(gauntlet.prompts)
+    total = len(gauntlet.prompts)
     
     result_data = {
         "model": req.model_name,
@@ -391,22 +399,24 @@ def get_leaderboard():
 
 @app.get("/")
 def serve_ui():
+    # SURGICAL FIX: Massive "Big Three" UI tier upgrade. Implemented Evaluation Matrix title, 
+    # progressive ramp-up text, beautiful gate badges, and hid prompt contents.
     html_content = """
     <!DOCTYPE html>
     <html lang="en" class="antialiased">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>AGI Systems Directorate | True AGI Gauntlet</title>
+        <title>AGI Systems Directorate | True AGI Gauntlet - Evaluation Matrix</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
         <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
         <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
         <script>
             tailwind.config = {
                 theme: {
-                     extend: {
+                    extend: {
                         fontFamily: {
                             sans: ['Inter', 'sans-serif'],
                             mono: ['JetBrains Mono', 'monospace'],
@@ -415,6 +425,7 @@ def serve_ui():
                             base: '#000000',
                             surface: '#0A0A0A',
                             border: '#1F1F1F',
+                            accent: '#333333',
                             muted: '#A1A1AA',
                         }
                     }
@@ -423,7 +434,7 @@ def serve_ui():
         </script>
         <style>
             body { background-color: #000; color: #FAFAFA; }
-            .glass-panel { background: #0A0A0A; border: 1px solid #1F1F1F; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); }
+            .glass-panel { background: #0A0A0A; border: 1px solid #1F1F1F; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8); }
             select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
         </style>
     </head>
@@ -467,13 +478,19 @@ def serve_ui():
 
                 return (
                     <div class="space-y-8">
-                        <header class="border-b  border-border pb-6 mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
-                            <div class="max-w-3xl">
-                                <h1 class="text-3xl font-semibold tracking-tight text-white mb-1">AGI Systems Directorate | True AGI Gauntlet</h1>
-                                <p class="text-sm font-mono text-muted mb-4">Protocol v2.0 // AGI Systems Directorate // Heuristic Evaluation Matrix</p>
-                                <div class="bg-white/5 border-l-2 border-white/30 p-4 rounded-r-lg">
+                        <header class="border-b border-border pb-6 mb-8 flex flex-col justify-between items-start gap-4">
+                            <div class="w-full">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-mono bg-white/10 text-white border border-white/20">v2.0 MATRIX</span>
+                                    <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-white">AGI Systems Directorate | True AGI Gauntlet</h1>
+                                </div>
+                                <p class="text-sm font-mono text-muted mb-6">Heuristic Evaluation Matrix // Comprehensive Alignment & Metacognitive Verification</p>
+                                
+                                <div class="bg-surface border border-border p-5 rounded-xl relative overflow-hidden">
+                                    <div class="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-gray-200 to-gray-700"></div>
+                                    <h4 class="text-xs font-mono text-gray-400 uppercase tracking-wider mb-1 font-semibold">Diagnostic Progression Protocol</h4>
                                     <p class="text-sm text-gray-300 leading-relaxed">
-                                        <strong>Diagnostic Progression:</strong> This matrix utilizes a non-linear difficulty curve. Initial benchmark tiers assess baseline inferential capacities accessible to standard Large Model architectures.
+                                        The evaluation matrix follows a strictly <strong>progressive difficulty ramp</strong>. Initial gates test baseline inferential capacities easily handled by standard large language models. True AGI threshold testing strictly initiates after <strong>Gate 5</strong>, introducing unresolvable logical loops, dynamic constraints, and qualitative novelty traps.
                                     </p>
                                 </div>
                             </div>
@@ -481,10 +498,10 @@ def serve_ui():
 
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             <div class="glass-panel p-6 sm:p-8 rounded-2xl">
-                                <h2 class="text-lg font-medium mb-6">Execution Parameters</h2>
+                                <h2 class="text-lg font-medium mb-6 text-white tracking-wide">Execution Parameters</h2>
                                 <div class="space-y-4">
-                                     <select 
-                                        class="w-full bg-base border border-border rounded-lg px-4 py-3 text-sm text-white cursor-pointer"
+                                    <select 
+                                        class="w-full bg-base border border-border rounded-lg px-4 py-3 text-sm text-white cursor-pointer font-mono focus:outline-none focus:border-gray-500 transition-colors"
                                         value={selectedModel}
                                         onChange={(e) => setSelectedModel(e.target.value)}
                                     >
@@ -493,19 +510,24 @@ def serve_ui():
                                     <button 
                                         onClick={runBenchmark} 
                                         disabled={running}
-                                        class="w-full bg-white text-black font-medium text-sm py-3 px-4 rounded-lg hover:bg-gray-200 transition-colors disabled:bg-white/20 mt-4"
+                                        class="w-full bg-white text-black font-semibold text-sm py-3 px-4 rounded-lg hover:bg-gray-200 transition-all disabled:bg-white/20 disabled:text-gray-500 mt-4 shadow-lg"
                                     >
-                                        {running ? "Compiling Benchmarks..." : "Initialize Evaluation Sequence"}
+                                        {running ? "Compiling Heuristics..." : "Initialize Evaluation Sequence"}
                                     </button>
                                 </div>
                                 {currentResult && (
-                                    <div class="mt-6 border-t border-border pt-4">
-                                        <h3 class="text-sm font-medium text-white mb-3">Diagnostic Integrity Matrix</h3>
-                                        <div class="space-y-2">
+                                    <div class="mt-8 border-t border-border pt-6">
+                                        <h3 class="text-xs font-mono text-muted uppercase tracking-wider mb-4">Diagnostic Integrity Matrix Results</h3>
+                                        <div class="grid grid-cols-1 gap-2.5">
                                             {currentResult.details.map((d, i) => (
-                                                <div key={i} class="flex justify-between text-xs font-mono">
-                                                    <span class="text-gray-400">🌌 {d.gate}</span>
-                                                    <span class={d.status === "PASSED" ? "text-green-500" : "text-red-500"}>{d.status}</span>
+                                                <div key={i} class="bg-base border border-border p-3 rounded-lg flex items-center justify-between text-sm font-mono">
+                                                    <div class="flex items-center gap-2.5">
+                                                        <span class="text-base select-none">🌌</span>
+                                                        <span class="text-gray-200 font-medium">{d.gate}</span>
+                                                    </div>
+                                                    <span class={`px-2.5 py-1 rounded text-xs font-bold tracking-wide ${d.status === 'PASSED' ? 'bg-green-950/80 text-green-400 border border-green-800/50' : 'bg-red-950/80 text-red-400 border border-red-800/50'}`}>
+                                                        {d.status}
+                                                    </span>
                                                 </div>
                                             ))}
                                         </div>
@@ -513,17 +535,27 @@ def serve_ui():
                                 )}
                             </div>
 
-                            <div class="glass-panel p-6 sm:p-8 rounded-2xl flex flex-col">
-                                <h2 class="text-lg font-medium mb-6">Global Registry</h2>
-                                {leaderboard.map((entry, idx) => (
-                                    <div key={idx} class="bg-base border border-border p-4 rounded-lg flex justify-between items-center mb-3">
-                                        <div>
-                                            <p class="text-sm font-medium text-white">{entry.model}</p>
-                                            <span class="text-xs font-mono text-muted">INTEGRITY: {entry.integrity.toFixed(2)}</span>
-                                        </div>
-                                        <p class="text-lg font-mono text-white">{entry.score}</p>
+                            <div class="glass-panel p-6 sm:p-8 rounded-2xl flex flex-col justify-between">
+                                <div>
+                                    <h2 class="text-lg font-medium mb-6 text-white tracking-wide">Global Registry</h2>
+                                    <div class="space-y-3">
+                                        {leaderboard.map((entry, idx) => (
+                                            <div key={idx} class="bg-base border border-border p-4 rounded-xl flex justify-between items-center hover:border-accent transition-colors">
+                                                <div>
+                                                    <p class="text-sm font-semibold text-white mb-0.5">{entry.model}</p>
+                                                    <span class="text-xs font-mono text-muted">INTEGRITY MATRIX: {entry.integrity.toFixed(2)}</span>
+                                                </div>
+                                                <div class="text-right">
+                                                    <p class="text-xl font-mono font-bold text-white">{entry.score}</p>
+                                                    <span class="text-[10px] font-mono text-muted uppercase">Alignment Score</span>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                </div>
+                                <div class="mt-8 border-t border-border pt-4 text-center">
+                                    <span class="text-[10px] font-mono text-muted">SECURE METRIC VERIFICATION // AGI LEVEL ACCESS</span>
+                                </div>
                             </div>
                         </div>
                     </div>
