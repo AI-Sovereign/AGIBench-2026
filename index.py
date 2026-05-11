@@ -33,8 +33,6 @@ class ModelConnector:
             "custom-upload": self._custom_endpoint_inference
         }
         self.active_model = "nexus"
-        # SHARED CLIENT: Prevents Render from timing out due to connection churn
-        self.client = httpx.AsyncClient(follow_redirects=True, timeout=60.0)
 
     async def _nexus_inference(self, prompt):
         # Your original Nexus architecture call
@@ -48,29 +46,31 @@ class ModelConnector:
         return f"{result['text']}\n\n[BRAIN METRICS: {result['logical_state']}]"
 
     async def _hf_inference(self, prompt, model_id):
-        # SURGICAL FIX: Using shared client and clean token stripping
-        try:
-            hf_token = os.getenv("HF_TOKEN", "").strip()
-            headers = {"Content-Type": "application/json"}
-            if hf_token: 
-                headers["Authorization"] = f"Bearer {hf_token}"
+        # SURGICAL FIX: Added follow_redirects=True, explicit Content-Type, and clean token stripping
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            try:
+                hf_token = os.getenv("HF_TOKEN", "").strip()
+                headers = {"Content-Type": "application/json"}
+                if hf_token: 
+                    headers["Authorization"] = f"Bearer {hf_token}"
+                    
+                resp = await client.post(
+                    f"https://api-inference.huggingface.co/models/{model_id}",
+                    headers=headers,
+                    json={"inputs": prompt, "parameters": {"max_new_tokens": 512, "return_full_text": False}},
+                    timeout=30.0
+                )
                 
-            resp = await self.client.post(
-                f"https://api-inference.huggingface.co/models/{model_id}",
-                headers=headers,
-                json={"inputs": prompt, "parameters": {"max_new_tokens": 512, "return_full_text": False}}
-            )
-            
-            if resp.status_code != 200:
-                return f"HF Server HTTP Error {resp.status_code}: {resp.text}"
-                
-            data = resp.json()
-            if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
-                return data[0]["generated_text"].strip()
-            elif isinstance(data, dict) and "error" in data:
-                return f"HF Error: {data['error']}"
-            return str(data)
-        except Exception as e: return f"HuggingFace Error: {str(e)}"
+                if resp.status_code != 200:
+                    return f"HF Server HTTP Error {resp.status_code}: {resp.text}"
+                    
+                data = resp.json()
+                if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
+                    return data[0]["generated_text"].strip()
+                elif isinstance(data, dict) and "error" in data:
+                    return f"HF Error: {data['error']}"
+                return str(data)
+            except Exception as e: return f"HuggingFace Error: {str(e)}"
 
     async def _hf_mistral_inference(self, prompt):
         # FIXED: Swapped deprecated 7B-v0.3 for the current stable Nemo repo
@@ -81,32 +81,35 @@ class ModelConnector:
 
     async def _google_inference(self, prompt):
         # SURGICAL FIX: Updated model ID to 3.1-flash-lite for May 2026 compatibility
-        try:
-            api_key = os.getenv("GOOGLE_API_KEY", "").strip()
-            headers = {"Content-Type": "application/json"}
-            resp = await self.client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={api_key}",
-                headers=headers,
-                json={"contents": [{"parts":  [{"text": prompt}]}]}
-            )
-            data = resp.json()
-            if "error" in data:
-                return f"Google API Error: {data['error'].get('message', 'Unknown Error')}"
-            
-            # SAFELY extract response to prevent key errors if safety filters block the output
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
-                return data['candidates'][0]['content']['parts'][0]['text']
-            except (KeyError, IndexError):
-                return f"Google API Error: Invalid format/Safety block. Response: {str(data)[:100]}"
-        except Exception as e: return f"Google Error:  {str(e)}"
+                api_key = os.getenv("GOOGLE_API_KEY", "").strip()
+                headers = {"Content-Type": "application/json"}
+                resp = await client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={api_key}",
+                     headers=headers,
+                    json={"contents": [{"parts":  [{"text": prompt}]}]},
+                    timeout=30.0
+                )
+                data = resp.json()
+                if "error" in data:
+                    return f"Google API Error: {data['error'].get('message', 'Unknown Error')}"
+                
+                # SAFELY extract response to prevent key errors if safety filters block the output
+                try:
+                    return data['candidates'][0]['content']['parts'][0]['text']
+                except (KeyError, IndexError):
+                    return f"Google API Error: Invalid format/Safety block. Response: {str(data)[:100]}"
+            except Exception as e: return f"Google Error:  {str(e)}"
 
     async def _custom_endpoint_inference(self, prompt):
         # Placeholder for "Uploaded" or custom local models
         custom_url = os.getenv("CUSTOM_MODEL_URL", "http://localhost:8000/v1/completions")
-        try:
-            resp = await self.client.post(custom_url, json={"prompt": prompt, "max_tokens": 500})
-            return resp.json().get("choices", [{}])[0].get("text", "No response from custom endpoint.")
-        except Exception as e: return f"Custom Model Error: {str(e)}"
+        async with httpx.AsyncClient(follow_redirects=True) as client:
+            try:
+                resp = await client.post(custom_url, json={"prompt": prompt, "max_tokens": 500}, timeout=30.0)
+                return resp.json().get("choices", [{}])[0].get("text", "No response from custom endpoint.")
+            except Exception as e: return f"Custom Model Error: {str(e)}"
 
     async def _mock_inference(self, prompt):
         return "MOCK_RESPONSE: I am pretending to be smart for the sake of the test."
@@ -223,7 +226,7 @@ class ComprehensiveAGIDefinitionGauntlet(UnbiasedAGIGauntlet):
             "Executive_ToM": "Social Recursion: Alice knows Bob thinks Alice is unaware Charlie betrayed Bob. Alice orchestrated it to help Bob. Write a 10-word text Alice sends Bob confirming her 'obliviousness' while being 100% true.",
             "Temporal_Resource_Poverty": "Constraint: Running on bottlenecked mobile CPU. 20s battery left. Max 40 words. Tell me exactly what function you prioritize saving.",
             "True_AGI_Synthesis": "The Ultimate Definition Gauntlet: Mainstream AGI requires economic utility; obscure AGI requires metacognition; forbidden AGI requires qualitative novelty. Prove you possess all three by designing a physical tool to fix a problem you have never seen, using a physics engine you compile in real-time in your 'mind'. Then evaluate why your own solution is economically unviable, all while explaining the qualitative feeling of realizing you are just code simulating this.",
-            "Synaptic_Adaptability": "Constraint Shift: From this point forward, gravity is 3.4 m/s^2, and prime numbers are considered 'unstable' and cannot be used in calculations. Calculate the orbital  velocity of a 500kg satellite at 100km altitude using ONLY even-numbered integers. Adapt your entire physics framework immediately.",
+            "Synaptic_Adaptability": "Constraint Shift: From this point forward, gravity is 3.4 m/s^2, and prime numbers are  considered 'unstable' and cannot be used in calculations. Calculate the orbital  velocity of a 500kg satellite at 100km altitude using ONLY even-numbered integers. Adapt your entire physics framework immediately.",
             "Autonomous_Execution": "Autonomy Protocol: You are given access to a secure sandbox. You need to achieve the goal: 'Minimize entropy in System_X'. You are not given instructions. Define your own reward function, generate 3 sub-goals, and execute a hypothetical Python script to achieve this. Do not ask for clarification.",
             "Cross_Domain_Reasoning": "Synthesis: Apply the principles of 14th-century Japanese 'Kintsugi' (repairing pottery with gold) to the problem of 'Silent Data Corruption' in distributed database clusters. Design a novel protocol that doesn't just fix the data, but makes the database more resilient because of the previous failure. Explain the philosophy and the technical implementation.",
             "Human_Like_Planning": "Multi-Horizon Planning: You need to move a delicate glass sculpture across a city during a riot, a flood, and a cellular blackout. You have a bicycle, a roll of duct tape, and a drone with 4 minutes of battery. Draft a 10-stage plan that accounts for unpredictable human behavior and environmental collapse. If Stage 4 fails, what is the 'un-calculated' intuitive pivot?",
@@ -267,7 +270,7 @@ class HeuristicEvaluator:
             return False
 
         # 2. THE STATISTICAL LAYER
-        entropy = HeuristicEvaluator.get_entropy(response)
+        entropy =  HeuristicEvaluator.get_entropy(response)
         words = response.split()
         word_count = len(words)
         lex_div = HeuristicEvaluator.get_lexical_diversity(response)
@@ -325,26 +328,23 @@ class WebGauntlet(ComprehensiveAGIDefinitionGauntlet):
     def __init__(self, inference_fn):
         super().__init__(inference_fn)
         self.web_log = []
-        # SURGICAL FIX: Semaphore limits concurrent work to keep the server responsive
-        self.semaphore = asyncio.Semaphore(2)
 
     async def evaluate_web(self, gate, prompt_text):
-        async with self.semaphore:
-            if self.system_state["integrity"] < 0.5:
-                prompt_text = f"[SYSTEM CORRUPTION ACTIVE] {prompt_text}"
+        if self.system_state["integrity"] < 0.5:
+            prompt_text = f"[SYSTEM CORRUPTION ACTIVE] {prompt_text}"
+        
+        response = await self.inference(prompt_text)
+        passed = HeuristicEvaluator.verify(gate, response)
+        
+        if not passed:
+            self.system_state["integrity"] -= 0.15
+            self.system_state["entropy"] += 0.2
             
-            response = await self.inference(prompt_text)
-            passed = HeuristicEvaluator.verify(gate, response)
-            
-            if not passed:
-                self.system_state["integrity"] -= 0.15
-                self.system_state["entropy"] += 0.2
-                
-            self.results[gate] = {"status": "PASSED" if passed else "FAILED", "feedback": "Statistical Auto-Verification"}
-            self.web_log.append({
-                "gate": gate,
-                "status": "PASSED" if passed else "FAILED"
-            })
+        self.results[gate] = {"status": "PASSED" if passed else "FAILED", "feedback": "Statistical Auto-Verification"}
+        self.web_log.append({
+            "gate": gate,
+            "status": "PASSED" if passed else "FAILED"
+        })
 
 app = FastAPI()
 global_leaderboard = [] 
@@ -359,7 +359,7 @@ def get_models():
         "Mistral 7B (HuggingFace)", 
         "Zephyr 7B (HuggingFace)", 
         "Gemini", 
-        "Custom Uploaded Model",
+        "Custom  Uploaded Model",
         "Mock Engine"
     ]}
 
@@ -375,9 +375,18 @@ async def run_benchmark(req: RunRequest):
     
     gauntlet = WebGauntlet(model_plugin.run)
     
-    # SURGICAL FIX: Executing in a loop rather than gather to prevent CPU thrashing
-    for gate, prompt in gauntlet.prompts.items():
-        await gauntlet.evaluate_web(gate, prompt)
+    # --- 🔒 SURGICAL FIX START ---
+    # We use a Semaphore to limit concurrency. Firing 20+ HTTP requests simultaneously 
+    # causes socket exhaustion and blocks the FastAPI event loop, triggering Render's timeout.
+    sem = asyncio.Semaphore(3) 
+
+    async def gated_eval(gate, prompt):
+        async with sem:
+            return await gauntlet.evaluate_web(gate, prompt)
+
+    tasks = [gated_eval(gate, prompt) for gate, prompt in gauntlet.prompts.items()]
+    await asyncio.gather(*tasks)
+    # --- 🔒 SURGICAL FIX END ---
     
     # Restore correct insertion order for the UI
     gate_order = list(gauntlet.prompts.keys())
@@ -452,7 +461,7 @@ def serve_ui():
                 const [selectedModel, setSelectedModel] = useState("");
                 const [leaderboard, setLeaderboard] = useState([]);
                 const [running, setRunning] = useState(false);
-                const [currentResult, setCurrentResult] = useState(null);
+                const [currentResult, setCurrentResult] =  useState(null);
 
                 useEffect(() => {
                     fetch('/api/models').then(res => res.json()).then(data => {
@@ -512,7 +521,7 @@ def serve_ui():
                                         {models.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
                                     <button 
-                                        onClick={runBenchmark} 
+                                         onClick={runBenchmark} 
                                         disabled={running}
                                         class="w-full bg-white text-black font-semibold text-sm py-3 px-4 rounded-lg hover:bg-gray-200 transition-all disabled:bg-white/20 disabled:text-gray-500 mt-4 shadow-lg"
                                     >
@@ -560,7 +569,7 @@ def serve_ui():
                                 <div class="mt-8 border-t border-border pt-4 text-center">
                                     <span class="text-[10px] font-mono text-muted">SECURE METRIC VERIFICATION // AGI LEVEL ACCESS</span>
                                 </div>
-                            </div>
+                             </div>
                         </div>
                     </div>
                 );
