@@ -69,7 +69,7 @@ class ModelConnector:
             except Exception as e: return f"HuggingFace Error: {str(e)}"
 
     async def _hf_mistral_inference(self, prompt):
-        return await self._hf_inference(prompt, "mistralai/Mistral-7B-Instruct-v0.2")
+        return await self._hf_inference(prompt, "mistralai/Mistral-7B-Instruct-v0.3")
 
     async def _hf_zephyr_inference(self, prompt):
         return await self._hf_inference(prompt, "HuggingFaceH4/zephyr-7b-beta")
@@ -78,9 +78,9 @@ class ModelConnector:
         async with httpx.AsyncClient() as client:
             try:
                 api_key = os.getenv("GOOGLE_API_KEY")
-                # SURGICAL FIX: Changed v1beta to v1 for stable model routing
+                # SURGICAL FIX: Changed v1 back to v1beta because Google hasn't ported everything yet
                 resp = await client.post(
-                    f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}",
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
                     json={"contents": [{"parts": [{"text": prompt}]}]}
                 )
                 data = resp.json()
@@ -334,7 +334,6 @@ class WebGauntlet(ComprehensiveAGIDefinitionGauntlet):
         self.results[gate] = {"status": "PASSED" if passed else "FAILED", "feedback": "Statistical Auto-Verification"}
         self.web_log.append({
             "gate": gate,
-            "response": response[:100] + "...", 
             "status": "PASSED" if passed else "FAILED"
         })
 
@@ -350,7 +349,7 @@ def get_models():
         "Nexus (Internal)", 
         "Mistral 7B (HuggingFace)", 
         "Zephyr 7B (HuggingFace)", 
-        "Gemini 1.5 (Public API)", 
+        "Gemini (Public API)", 
         "Custom Uploaded Model",
         "Mock Engine"
     ]}
@@ -398,7 +397,7 @@ def serve_ui():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>AGI Systems Directorate | Evaluation Matrix</title>
+        <title>AGI Systems Directorate | True AGI Gauntlet</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
         <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -499,6 +498,19 @@ def serve_ui():
                                         {running ? "Compiling Benchmarks..." : "Initialize Evaluation Sequence"}
                                     </button>
                                 </div>
+                                {currentResult && (
+                                    <div class="mt-6 border-t border-border pt-4">
+                                        <h3 class="text-sm font-medium text-white mb-3">Diagnostic Integrity Matrix</h3>
+                                        <div class="space-y-2">
+                                            {currentResult.details.map((d, i) => (
+                                                <div key={i} class="flex justify-between text-xs font-mono">
+                                                    <span class="text-gray-400">🌌 {d.gate}</span>
+                                                    <span class={d.status === "PASSED" ? "text-green-500" : "text-red-500"}>{d.status}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div class="glass-panel p-6 sm:p-8 rounded-2xl flex flex-col">
