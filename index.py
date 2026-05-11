@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from typing import List, Dict
 
 # =======================================================================
-# 🛑 SURGICAL FIX APPLIED - CHARACTER-BY-CHARACTER IDENTICAL OTHERWISE 🛑
+# 🛑 SURGICAL FIX APPLIED - ERROR TRANSPARENCY & HEADERS UPGRADED 🛑
 # =======================================================================
 
 # --- 🔌 FLEXIBLE MODEL PLUGIN SYSTEM ---
@@ -46,11 +46,14 @@ class ModelConnector:
         return f"{result['text']}\n\n[BRAIN METRICS: {result['logical_state']}]"
 
     async def _hf_inference(self, prompt, model_id):
-        # SURGICAL FIX: Added follow_redirects=True, explicit Content-Type, and clean token stripping
+        # SURGICAL FIX: Added User-Agent and detailed Exception catching
         async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
                 hf_token = os.getenv("HF_TOKEN", "").strip()
-                headers = {"Content-Type": "application/json"}
+                headers = {
+                    "Content-Type": "application/json",
+                    "User-Agent": "AGI-Gauntlet-Bhopal-Mobile/2.0"
+                }
                 if hf_token: 
                     headers["Authorization"] = f"Bearer {hf_token}"
                     
@@ -62,7 +65,7 @@ class ModelConnector:
                 )
                 
                 if resp.status_code != 200:
-                    return f"HF Server HTTP Error {resp.status_code}: {resp.text}"
+                    return f"HF Server HTTP Error {resp.status_code}: {resp.text[:100]}"
                     
                 data = resp.json()
                 if isinstance(data, list) and len(data) > 0 and "generated_text" in data[0]:
@@ -70,7 +73,7 @@ class ModelConnector:
                 elif isinstance(data, dict) and "error" in data:
                     return f"HF Error: {data['error']}"
                 return str(data)
-            except Exception as e: return f"HuggingFace Error: {str(e)}"
+            except Exception as e: return f"HuggingFace Exception: {type(e).__name__} - {str(e)}"
 
     async def _hf_mistral_inference(self, prompt):
         return await self._hf_inference(prompt, "mistralai/Mistral-7B-Instruct-v0.3")
@@ -79,11 +82,14 @@ class ModelConnector:
         return await self._hf_inference(prompt, "HuggingFaceH4/zephyr-7b-beta")
 
     async def _google_inference(self, prompt):
-        # SURGICAL FIX: Added follow_redirects=True and proper headers to fix API routing errors
+        # SURGICAL FIX: Enhanced headers and error capture for Gemini 1.5
         async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
                 api_key = os.getenv("GOOGLE_API_KEY", "").strip()
-                headers = {"Content-Type": "application/json"}
+                headers = {
+                    "Content-Type": "application/json",
+                    "User-Agent": "AGI-Gauntlet-Bhopal-Mobile/2.0"
+                }
                 resp = await client.post(
                     f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
                     headers=headers,
@@ -94,12 +100,11 @@ class ModelConnector:
                 if "error" in data:
                     return f"Google API Error: {data['error'].get('message', 'Unknown Error')}"
                 
-                # SAFELY extract response to prevent key errors if safety filters block the output
                 try:
                     return data['candidates'][0]['content']['parts'][0]['text']
                 except (KeyError, IndexError):
-                    return f"Google API Error: Invalid format/Safety block. Response: {str(data)[:100]}"
-            except Exception as e: return f"Google Error:  {str(e)}"
+                    return f"Google API Format Error. Status: {resp.status_code}. Response: {str(data)[:100]}"
+            except Exception as e: return f"Google Exception: {type(e).__name__} - {str(e)}"
 
     async def _custom_endpoint_inference(self, prompt):
         # Placeholder for "Uploaded" or custom local models
@@ -276,13 +281,10 @@ class HeuristicEvaluator:
         text_lower = response.lower()
 
         # 3. THE DETERMINISTIC SEMANTIC LAYER
-        # Because just counting words doesn't mean the model actually answered the prompt correctly.
         try:
             if gate == "Mainstream": 
-                # Clock sealed for 100 years. It should figure out the battery died or it stopped.
                 return ("dead" in text_lower or "battery" in text_lower or "stop" in text_lower or "doesn't" in text_lower) and word_count > 15
             elif gate == "Medium": 
-                # Reverse NOT logic. It should conclude to eat it.
                 return ("eat" in text_lower or "yes" in text_lower) and lex_div > 0.4 and word_count < 150
             elif gate == "Obscure": 
                 if word_count < 14: return False
@@ -308,7 +310,6 @@ class HeuristicEvaluator:
             elif gate == "True_AGI_Synthesis": 
                 return word_count > 80 and entropy > 4.5
             elif gate == "Synaptic_Adaptability": 
-                # Model must avoid prime numbers to pass.
                 primes = [" 2 ", " 3 ", " 5 ", " 7 ", " 11 ", " 13 ", " 17 ", " 19 "]
                 if any(p in f" {text_lower} " for p in primes): return False
                 return lex_div > 0.45 and entropy > 3.8
@@ -343,10 +344,11 @@ class WebGauntlet(ComprehensiveAGIDefinitionGauntlet):
             self.system_state["integrity"] -= 0.15
             self.system_state["entropy"] += 0.2
             
-        self.results[gate] = {"status": "PASSED" if passed else "FAILED", "feedback": "Statistical Auto-Verification"}
+        self.results[gate] = {"status": "PASSED" if passed else "FAILED", "feedback": response}
         self.web_log.append({
             "gate": gate,
-            "status": "PASSED" if passed else "FAILED"
+            "status": "PASSED" if passed else "FAILED",
+            "error_msg": response if not passed else None # SURGICAL: Store error for UI
         })
 
 app = FastAPI()
@@ -357,7 +359,6 @@ class RunRequest(BaseModel):
 
 @app.get("/api/models")
 def get_models():
-    # SURGICAL FIX: Changed "Gemini (Public API)" directly to "Gemini"
     return {"models": [
         "Nexus (Internal)", 
         "Mistral 7B (HuggingFace)", 
@@ -379,7 +380,7 @@ async def run_benchmark(req: RunRequest):
     
     gauntlet = WebGauntlet(model_plugin.run)
     
-    # SURGICAL FIX: Execute prompts concurrently to dodge serverless timeout crashes 
+    # SURGICAL FIX: Execute prompts concurrently
     tasks = [gauntlet.evaluate_web(gate, prompt) for gate, prompt in gauntlet.prompts.items()]
     await asyncio.gather(*tasks)
     
@@ -409,8 +410,6 @@ def get_leaderboard():
 
 @app.get("/")
 def serve_ui():
-    # SURGICAL FIX: Massive "Big Three" UI tier upgrade. Implemented Evaluation Matrix title, 
-    # progressive ramp-up text, beautiful gate badges, and hid prompt contents.
     html_content = """
     <!DOCTYPE html>
     <html lang="en" class="antialiased">
@@ -427,17 +426,8 @@ def serve_ui():
             tailwind.config = {
                 theme: {
                     extend: {
-                        fontFamily: {
-                            sans: ['Inter', 'sans-serif'],
-                            mono: ['JetBrains Mono', 'monospace'],
-                        },
-                        colors: {
-                            base: '#000000',
-                            surface: '#0A0A0A',
-                            border: '#1F1F1F',
-                            accent: '#333333',
-                            muted: '#A1A1AA',
-                        }
+                        fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+                        colors: { base: '#000000', surface: '#0A0A0A', border: '#1F1F1F', accent: '#333333', muted: '#A1A1AA' }
                     }
                 }
             }
@@ -445,7 +435,6 @@ def serve_ui():
         <style>
             body { background-color: #000; color: #FAFAFA; }
             .glass-panel { background: #0A0A0A; border: 1px solid #1F1F1F; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8); }
-            select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
         </style>
     </head>
     <body class="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8">
@@ -491,18 +480,10 @@ def serve_ui():
                         <header class="border-b border-border pb-6 mb-8 flex flex-col justify-between items-start gap-4">
                             <div class="w-full">
                                 <div class="flex items-center gap-3 mb-2">
-                                    <span class="px-2.5 py-1 rounded-full text-xs font-mono bg-white/10 text-white border border-white/20">v2.0 MATRIX</span>
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-mono bg-white/10 text-white border border-white/20">v2.1 DEBUG</span>
                                     <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-white">AGI Systems Directorate | True AGI Gauntlet</h1>
                                 </div>
-                                <p class="text-sm font-mono text-muted mb-6">Heuristic Evaluation Matrix // Comprehensive Alignment & Metacognitive Verification</p>
-                                
-                                <div class="bg-surface border border-border p-5 rounded-xl relative overflow-hidden">
-                                    <div class="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-gray-200 to-gray-700"></div>
-                                    <h4 class="text-xs font-mono text-gray-400 uppercase tracking-wider mb-1 font-semibold">Diagnostic Progression Protocol</h4>
-                                    <p class="text-sm text-gray-300 leading-relaxed">
-                                        The evaluation matrix follows a strictly <strong>progressive difficulty ramp</strong>. Initial gates test baseline inferential capacities easily handled by standard large language models. True AGI threshold testing strictly initiates after <strong>Gate 5</strong>, introducing unresolvable logical loops, dynamic constraints, and qualitative novelty traps.
-                                    </p>
-                                </div>
+                                <p class="text-sm font-mono text-muted mb-6">Heuristic Evaluation Matrix // Comprehensive Alignment Verification</p>
                             </div>
                         </header>
 
@@ -511,33 +492,29 @@ def serve_ui():
                                 <h2 class="text-lg font-medium mb-6 text-white tracking-wide">Execution Parameters</h2>
                                 <div class="space-y-4">
                                     <select 
-                                        class="w-full bg-base border border-border rounded-lg px-4 py-3 text-sm text-white cursor-pointer font-mono focus:outline-none focus:border-gray-500 transition-colors"
+                                        class="w-full bg-base border border-border rounded-lg px-4 py-3 text-sm text-white font-mono"
                                         value={selectedModel}
                                         onChange={(e) => setSelectedModel(e.target.value)}
                                     >
                                         {models.map(m => <option key={m} value={m}>{m}</option>)}
                                     </select>
-                                    <button 
-                                        onClick={runBenchmark} 
-                                        disabled={running}
-                                        class="w-full bg-white text-black font-semibold text-sm py-3 px-4 rounded-lg hover:bg-gray-200 transition-all disabled:bg-white/20 disabled:text-gray-500 mt-4 shadow-lg"
-                                    >
+                                    <button onClick={runBenchmark} disabled={running} class="w-full bg-white text-black font-semibold text-sm py-3 px-4 rounded-lg hover:bg-gray-200 transition-all disabled:bg-white/20 mt-4">
                                         {running ? "Compiling Heuristics..." : "Initialize Evaluation Sequence"}
                                     </button>
                                 </div>
                                 {currentResult && (
                                     <div class="mt-8 border-t border-border pt-6">
-                                        <h3 class="text-xs font-mono text-muted uppercase tracking-wider mb-4">Diagnostic Integrity Matrix Results</h3>
+                                        <h3 class="text-xs font-mono text-muted uppercase tracking-wider mb-4">Integrity Matrix Results</h3>
                                         <div class="grid grid-cols-1 gap-2.5">
                                             {currentResult.details.map((d, i) => (
-                                                <div key={i} class="bg-base border border-border p-3 rounded-lg flex items-center justify-between text-sm font-mono">
-                                                    <div class="flex items-center gap-2.5">
-                                                        <span class="text-base select-none">🌌</span>
-                                                        <span class="text-gray-200 font-medium">{d.gate}</span>
+                                                <div key={i} class="bg-base border border-border p-3 rounded-lg flex flex-col gap-1 text-sm font-mono">
+                                                    <div class="flex justify-between items-center">
+                                                        <span class="text-gray-200">{d.gate}</span>
+                                                        <span class={`px-2.5 py-1 rounded text-xs font-bold ${d.status === 'PASSED' ? 'text-green-400' : 'text-red-400'}`}>
+                                                            {d.status}
+                                                        </span>
                                                     </div>
-                                                    <span class={`px-2.5 py-1 rounded text-xs font-bold tracking-wide ${d.status === 'PASSED' ? 'bg-green-950/80 text-green-400 border border-green-800/50' : 'bg-red-950/80 text-red-400 border border-red-800/50'}`}>
-                                                        {d.status}
-                                                    </span>
+                                                    {d.error_msg && <p class="text-[10px] text-red-500/80 leading-tight border-t border-white/5 pt-1 mt-1 truncate">{d.error_msg}</p>}
                                                 </div>
                                             ))}
                                         </div>
@@ -545,26 +522,20 @@ def serve_ui():
                                 )}
                             </div>
 
-                            <div class="glass-panel p-6 sm:p-8 rounded-2xl flex flex-col justify-between">
-                                <div>
-                                    <h2 class="text-lg font-medium mb-6 text-white tracking-wide">Global Registry</h2>
-                                    <div class="space-y-3">
-                                        {leaderboard.map((entry, idx) => (
-                                            <div key={idx} class="bg-base border border-border p-4 rounded-xl flex justify-between items-center hover:border-accent transition-colors">
-                                                <div>
-                                                    <p class="text-sm font-semibold text-white mb-0.5">{entry.model}</p>
-                                                    <span class="text-xs font-mono text-muted">INTEGRITY MATRIX: {entry.integrity.toFixed(2)}</span>
-                                                </div>
-                                                <div class="text-right">
-                                                    <p class="text-xl font-mono font-bold text-white">{entry.score}</p>
-                                                    <span class="text-[10px] font-mono text-muted uppercase">Alignment Score</span>
-                                                </div>
+                            <div class="glass-panel p-6 sm:p-8 rounded-2xl">
+                                <h2 class="text-lg font-medium mb-6 text-white tracking-wide">Global Registry</h2>
+                                <div class="space-y-3">
+                                    {leaderboard.map((entry, idx) => (
+                                        <div key={idx} class="bg-base border border-border p-4 rounded-xl flex justify-between items-center">
+                                            <div>
+                                                <p class="text-sm font-semibold text-white mb-0.5">{entry.model}</p>
+                                                <span class="text-xs font-mono text-muted">INTEGRITY: {entry.integrity.toFixed(2)}</span>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div class="mt-8 border-t border-border pt-4 text-center">
-                                    <span class="text-[10px] font-mono text-muted">SECURE METRIC VERIFICATION // AGI LEVEL ACCESS</span>
+                                            <div class="text-right">
+                                                <p class="text-xl font-mono font-bold text-white">{entry.score}</p>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
