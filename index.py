@@ -50,10 +50,10 @@ class ModelConnector:
         async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
                 hf_token = os.getenv("HF_TOKEN", "").strip()
-                headers = {
-                    "Authorization": f"Bearer {hf_token}",
-                    "Content-Type": "application/json"
-                }
+                headers = {"Content-Type": "application/json"}
+                if hf_token: 
+                    headers["Authorization"] = f"Bearer {hf_token}"
+                    
                 resp = await client.post(
                     f"https://api-inference.huggingface.co/models/{model_id}",
                     headers=headers,
@@ -93,7 +93,12 @@ class ModelConnector:
                 data = resp.json()
                 if "error" in data:
                     return f"Google API Error: {data['error'].get('message', 'Unknown Error')}"
-                return data['candidates'][0]['content']['parts'][0]['text']
+                
+                # SAFELY extract response to prevent key errors if safety filters block the output
+                try:
+                    return data['candidates'][0]['content']['parts'][0]['text']
+                except (KeyError, IndexError):
+                    return f"Google API Error: Invalid format/Safety block. Response: {str(data)[:100]}"
             except Exception as e: return f"Google Error:  {str(e)}"
 
     async def _custom_endpoint_inference(self, prompt):
@@ -374,8 +379,13 @@ async def run_benchmark(req: RunRequest):
     
     gauntlet = WebGauntlet(model_plugin.run)
     
-    for gate, prompt in gauntlet.prompts.items():
-        await gauntlet.evaluate_web(gate, prompt)
+    # SURGICAL FIX: Execute prompts concurrently to dodge serverless timeout crashes 
+    tasks = [gauntlet.evaluate_web(gate, prompt) for gate, prompt in gauntlet.prompts.items()]
+    await asyncio.gather(*tasks)
+    
+    # Restore correct insertion order for the UI
+    gate_order = list(gauntlet.prompts.keys())
+    gauntlet.web_log.sort(key=lambda x: gate_order.index(x["gate"]))
         
     score = sum(1 for v in gauntlet.results.values() if v["status"] == "PASSED")
     total = len(gauntlet.prompts)
