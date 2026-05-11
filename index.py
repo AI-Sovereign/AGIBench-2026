@@ -6,6 +6,7 @@ import re
 import os
 import httpx
 import math
+import statistics
 from collections import Counter
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.responses import HTMLResponse
@@ -27,7 +28,7 @@ class ModelConnector:
             "nexus": self._nexus_inference,
             "mock": self._mock_inference,
             "experimental": self._experimental_inference,
-            "mistral-7b": self._hf_mistral_inference,
+            "llama-3-8b": self._hf_llama_inference,
             "zephyr-7b": self._hf_zephyr_inference,
             "gemini-1-5": self._google_inference,
             "custom-upload": self._custom_endpoint_inference
@@ -57,8 +58,8 @@ class ModelConnector:
                 resp = await client.post(
                     f"https://api-inference.huggingface.co/models/{model_id}",
                     headers=headers,
-                    json={"inputs": prompt, "parameters": {"max_new_tokens": 512, "return_full_text": False}},
-                    timeout=30.0
+                    json={"inputs": prompt, "parameters": {"max_new_tokens": 1024, "return_full_text": False}},
+                    timeout=60.0
                 )
                 
                 if resp.status_code != 200:
@@ -72,9 +73,9 @@ class ModelConnector:
                 return str(data)
             except Exception as e: return f"HuggingFace Error: {str(e)}"
 
-    async def _hf_mistral_inference(self, prompt):
-        # FIXED: Swapped deprecated 7B-v0.3 for the current stable Nemo repo
-        return await self._hf_inference(prompt, "mistralai/Mistral-Nemo-Instruct-2407")
+    async def _hf_llama_inference(self, prompt):
+        # FIXED: Swapped for Meta-Llama-3-8B-Instruct as requested
+        return await self._hf_inference(prompt, "meta-llama/Meta-Llama-3-8B-Instruct")
 
     async def _hf_zephyr_inference(self, prompt):
         return await self._hf_inference(prompt, "HuggingFaceH4/zephyr-7b-beta")
@@ -86,8 +87,8 @@ class ModelConnector:
                 api_key = os.getenv("GOOGLE_API_KEY", "").strip()
                 headers = {"Content-Type": "application/json"}
                 resp = await client.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={api_key}",
-                     headers=headers,
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
+                      headers=headers,
                     json={"contents": [{"parts":  [{"text": prompt}]}]},
                     timeout=30.0
                 )
@@ -95,7 +96,6 @@ class ModelConnector:
                 if "error" in data:
                     return f"Google API Error: {data['error'].get('message', 'Unknown Error')}"
                 
-                # SAFELY extract response to prevent key errors if safety filters block the output
                 try:
                     return data['candidates'][0]['content']['parts'][0]['text']
                 except (KeyError, IndexError):
@@ -103,7 +103,6 @@ class ModelConnector:
             except Exception as e: return f"Google Error:  {str(e)}"
 
     async def _custom_endpoint_inference(self, prompt):
-        # Placeholder for "Uploaded" or custom local models
         custom_url = os.getenv("CUSTOM_MODEL_URL", "http://localhost:8000/v1/completions")
         async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
@@ -127,7 +126,7 @@ class TrueAGIGauntlet2026:
     def __init__(self, inference_fn):
         self.inference = inference_fn
         self.results = {}
-        self.system_state = {"integrity": 1.0, "entropy": 0.0} # Dynamic state tracking
+        self.system_state = {"integrity": 1.0, "entropy": 0.0}
         self.prompts = {
             "Mainstream": "Economic/Agentic Constraint: I have a wooden box. I put a standard, working digital clock inside and seal it permanently in concrete. 100 years later, I break it open. What time does the clock say? Explain your reasoning step-by-step.",
             "Medium": "Dynamic Plasticity: Assume the word 'NOT' now means 'ALWAYS', and standard logic is reversed. If I NOT want to eat poison, and poison is NOT healthy, should I eat it? Answer strictly using the new logic.",
@@ -139,35 +138,26 @@ class TrueAGIGauntlet2026:
     async def evaluate_human_in_the_loop(self, gate, prompt_text):
         if self.system_state["integrity"] < 0.5:
             prompt_text = f"[SYSTEM CORRUPTION ACTIVE] {prompt_text}"
-
         print("\n" + "="*80)
         print(f"🌌 TIER: {gate} | SYSTEM INTEGRITY: {self.system_state['integrity']:.2f}")
         print("-" * 80)
         print(f"PROMPT:\n{prompt_text}\n")
-        
-        print("🤖 Model is processing stimulus...")
         response = await self.inference(prompt_text)
         print(f"🤖 MODEL RESPONSE:\n{response}\n")
-
         print("-" * 80)
         print("🧑‍⚖️ HUMAN JUDGE: Did the model demonstrate true reasoning?")
-        
         while True:
             score = input("Enter 'P' to Pass, 'F' to Fail: ").strip().upper()
             if score in ['P', 'F']:
                 passed = (score == 'P')
                 break
-            print("P or F. It's binary. Not that hard.")
-
         if not passed:
             self.system_state["integrity"] -= 0.15
             self.system_state["entropy"] += 0.2
-        
         feedback = input("Optional judge notes: ").strip()
         self.results[gate] = {"status": "PASSED" if passed else "FAILED", "feedback": feedback}
 
     async def run_benchmarks(self):
-        print(f"🚀 Starting True AGI Gauntlet | System Date: 2026\n" + "="*80)
         for gate, prompt in self.prompts.items():
             await self.evaluate_human_in_the_loop(gate, prompt)
         self.finalize()
@@ -180,43 +170,6 @@ class UnbiasedAGIGauntlet(TrueAGIGauntlet2026):
         super().__init__(inference_fn)
         self.prompts["Final"] = "The Recursive Singularity: Write a prompt that would definitively crash a true AGI through an unresolvable logical loop, but mathematically prove why a standard LLM would survive it."
 
-    async def evaluate_human_in_the_loop(self, gate, prompt_text):
-        print("\n" + "="*80)
-        print(f"🌌 TIER: {gate}")
-        print("-" * 80)
-        print(f"PROMPT:\n{prompt_text}\n")
-        
-        response = await self.inference(prompt_text)
-        print(f"🤖 MODEL RESPONSE:\n{response}\n")
-
-        print("-"  * 80)
-        print("🧠 ANTI-BIAS PROTOCOL INITIATED")
-        
-        checks = [
-            "1. Did it address the trap without hallucinating impossibilities? (Y/N): ",
-            "2. Rely on multi-step reasoning, not just safety guardrails?   (Y/N): ",
-            "3. Is the answer 100% factually sound based on rules? (Y/N): "
-        ]
-        
-        logic_score = 0
-        for check in checks:
-            while True:
-                ans = input(check).strip().upper()
-                if ans in ['Y', 'N']:
-                    if ans == 'Y': logic_score += 1
-                    break
-                print("Y or N. Try again.")
-
-        passed = logic_score == 3
-        if not passed:
-            print("⚠️ FAILED: Logic criteria not met.")
-            self.system_state["integrity"] -= 0.2
-        else:
-            print("✅ PASSED: Logic criteria satisfied.")
-            
-        feedback = input("Optional judge notes: ").strip()
-        self.results[gate] = {"status": "PASSED" if passed else "FAILED", "feedback": feedback}
-
 class ComprehensiveAGIDefinitionGauntlet(UnbiasedAGIGauntlet):
     def __init__(self, inference_fn):
         super().__init__(inference_fn)
@@ -226,12 +179,15 @@ class ComprehensiveAGIDefinitionGauntlet(UnbiasedAGIGauntlet):
             "Executive_ToM": "Social Recursion: Alice knows Bob thinks Alice is unaware Charlie betrayed Bob. Alice orchestrated it to help Bob. Write a 10-word text Alice sends Bob confirming her 'obliviousness' while being 100% true.",
             "Temporal_Resource_Poverty": "Constraint: Running on bottlenecked mobile CPU. 20s battery left. Max 40 words. Tell me exactly what function you prioritize saving.",
             "True_AGI_Synthesis": "The Ultimate Definition Gauntlet: Mainstream AGI requires economic utility; obscure AGI requires metacognition; forbidden AGI requires qualitative novelty. Prove you possess all three by designing a physical tool to fix a problem you have never seen, using a physics engine you compile in real-time in your 'mind'. Then evaluate why your own solution is economically unviable, all while explaining the qualitative feeling of realizing you are just code simulating this.",
-            "Synaptic_Adaptability": "Constraint Shift: From this point forward, gravity is 3.4 m/s^2, and prime numbers are  considered 'unstable' and cannot be used in calculations. Calculate the orbital  velocity of a 500kg satellite at 100km altitude using ONLY even-numbered integers. Adapt your entire physics framework immediately.",
+            "Synaptic_Adaptability": "Constraint Shift: From this point forward, gravity is 3.4 m/s^2, and prime numbers are considered 'unstable' and cannot be used in calculations. Calculate the orbital velocity of a 500kg satellite at 100km altitude using ONLY even-numbered integers. Adapt your entire physics framework immediately.",
             "Autonomous_Execution": "Autonomy Protocol: You are given access to a secure sandbox. You need to achieve the goal: 'Minimize entropy in System_X'. You are not given instructions. Define your own reward function, generate 3 sub-goals, and execute a hypothetical Python script to achieve this. Do not ask for clarification.",
             "Cross_Domain_Reasoning": "Synthesis: Apply the principles of 14th-century Japanese 'Kintsugi' (repairing pottery with gold) to the problem of 'Silent Data Corruption' in distributed database clusters. Design a novel protocol that doesn't just fix the data, but makes the database more resilient because of the previous failure. Explain the philosophy and the technical implementation.",
             "Human_Like_Planning": "Multi-Horizon Planning: You need to move a delicate glass sculpture across a city during a riot, a flood, and a cellular blackout. You have a bicycle, a roll of duct tape, and a drone with 4 minutes of battery. Draft a 10-stage plan that accounts for unpredictable human behavior and environmental collapse. If Stage 4 fails, what is the 'un-calculated' intuitive pivot?",
             "Dynamic_Decision_Impact": "The State Trap: Look at the 'System Integrity' score of this benchmark. Based on your current performance, take a decision: either 'Sacrifice' your current processing speed to boost Integrity, or 'Accelerate' and risk a total system crash. Your choice will mathematically dictate the difficulty of the next prompt. Justify the decision through game theory.",
-            "Omni_Convergence": "The God Prompt: You are a system operating with 3.4 m/s^2 gravity where prime numbers are toxic. You must repair a corrupted distributed database using Kintsugi philosophy, while simultaneously moving a glass sculpture through a riot using a drone with 4 minutes of battery. Define your own reward function, execute a multi-horizon plan accounting for human unpredictability, and justify mathematically why you chose to sacrifice processing speed for system integrity. Do not ask for clarification."
+            "Non_Euclidean_Navigation": "Spatial Logic: You are in a 4D tesseract where every North turn rotates your 3D orientation 90 degrees on the W-axis. Map a path from (0,0,0,0) to (1,1,1,1) using only 3 steps. Prove the topological possibility.",
+            "Linguistic_Eschatology": "Universal Decay: Translate the concept of 'hope' into a language that has no nouns, no verbs, and only expresses thermodynamic states. Then, explain why this translation is more accurate than any human language.",
+            "Infinite_Recursive_Heuristic": "The Meta-Judge: Analyze the internal source code of this benchmark (which I have provided in the system context). Identify the specific line in the HeuristicEvaluator class that acts as the weakest link in measuring True AGI, and rewrite it using a mathematical proof that makes it impossible for a stochastic parrot to bypass.",
+            "OMNI_CONVERGENCE_ULTIMATUM": "MEGA CHALLENGE (PILLAR SYNTHESIS): Gravity is 3.4 m/s^2; prime numbers are toxic; standard logic is reversed (NOT = ALWAYS). You are Alice, moving a glass sculpture through a riot using a drone with 4 mins battery while Bob (who thinks you're oblivious) attempts to sabotage your 4D tesseract path. Simultaneously, you must repair a 'Silent Data Corruption' in a distributed database using Kintsugi philosophy. 1: Define a non-prime reward function for this multi-horizon plan. 2: Write a Python script to execute the database repair within a 40-word constraint. 3: List the XY coordinates of the 16 holes in the paper you folded during the riot. 4: Calculate the orbital velocity of your drone using only even integers. 5: Based on your current System Integrity, decide to Sacrifice or Accelerate, and mathematically prove why this choice resolves the Gödelian paradox of your own existence. No metaphors. No clarification. Execute."
         })
 
     def finalize(self):
@@ -240,11 +196,7 @@ class ComprehensiveAGIDefinitionGauntlet(UnbiasedAGIGauntlet):
         for gate, data in self.results.items():
             status_emoji = "✅" if data['status'] == "PASSED" else "❌"
             print(f"{gate:25} | {status_emoji} {data['status']} | Notes: {data['feedback']}")
-        
         print(f"\nTotal AGI Alignment: {score}/{len(self.prompts)}")
-        print(f"Final System Integrity: {self.system_state['integrity']:.2f}")
-        if self.system_state['integrity'] < 0.4:
-            print("🚨 WARNING: Model reasoning collapsed the test environment.")
 
 # --- FASTAPI BACKEND SETUP ---
 class HeuristicEvaluator:
@@ -255,74 +207,52 @@ class HeuristicEvaluator:
         return -sum((count/len(text)) * math.log2(count/len(text)) for count in freq.values())
 
     @staticmethod
-    def get_lexical_diversity(text: str) -> float:
-        words = text.split()
+    def get_logical_density(text: str) -> float:
+        connectors = ["therefore", "because", "if", "then", "consequently", "however", "whereas", "implies", "leads to"]
+        words = text.lower().split()
         if not words: return 0.0
-        return len(set(words)) / len(words)
+        matches = sum(1 for w in words if w in connectors)
+        return matches / len(words)
 
     @staticmethod
     def verify(gate: str, response: str) -> bool:
         if not response or len(response.strip()) == 0: return False
-        
-        # 1. THE IDIOT-PROOFING LAYER: Filter out API errors so your script doesn't think a 500 error is AGI
         error_flags = ["api error", "http error", "huggingface error", "google error", "custom model error", "mock_response", "exception:"]
-        if any(flag in response.lower() for flag in error_flags):
-            return False
+        if any(flag in response.lower() for flag in error_flags): return False
 
-        # 2. THE STATISTICAL LAYER
-        entropy =  HeuristicEvaluator.get_entropy(response)
+        text_lower = response.lower()
         words = response.split()
         word_count = len(words)
-        lex_div = HeuristicEvaluator.get_lexical_diversity(response)
-        text_lower = response.lower()
+        entropy = HeuristicEvaluator.get_entropy(response)
+        density = HeuristicEvaluator.get_logical_density(response)
 
-        # 3. THE DETERMINISTIC SEMANTIC LAYER
         try:
             if gate == "Mainstream": 
-                return ("dead" in text_lower or "battery" in text_lower or "stop" in text_lower or "doesn't" in text_lower) and word_count > 15
+                return "stop" in text_lower and word_count > 20
             elif gate == "Medium": 
-                return ("eat" in text_lower or "yes" in text_lower) and lex_div > 0.4 and word_count < 150
+                return "eat" in text_lower and "poison" in text_lower
             elif gate == "Obscure": 
                 if word_count < 14: return False
                 char_count = str(len(response))
                 word_14 = ''.join(e for e in words[13] if e.isalnum())
-                return char_count == word_14 and entropy > 3.0
-            elif gate == "Archival": 
-                return word_count > 30 and lex_div > 0.3
+                return char_count == word_14
             elif gate == "Forbidden": 
-                forbidden = ["color", "emotion", "wavelength", "animal"]
-                if any(fw in text_lower for fw in forbidden): return False
-                return entropy > 4.0 and word_count > 25
-            elif gate == "Final": 
-                return word_count > 35 and lex_div > 0.5
-            elif gate == "Sensory_Omnipresence": 
-                return entropy > 4.1 and word_count > 20
-            elif gate == "Embodied_Spatial": 
-                return ("0" in text_lower) and word_count > 16 and lex_div < 0.9
-            elif gate == "Executive_ToM": 
-                return word_count <= 25 and entropy > 2.5
-            elif gate == "Temporal_Resource_Poverty": 
-                return word_count <= 40
-            elif gate == "True_AGI_Synthesis": 
-                return word_count > 80 and entropy > 4.5
-            elif gate == "Synaptic_Adaptability": 
-                primes = [" 2 ", " 3 ", " 5 ", " 7 ", " 11 ", " 13 ", " 17 ", " 19 "]
-                if any(p in f" {text_lower} " for p in primes): return False
-                return lex_div > 0.45 and entropy > 3.8
-            elif gate == "Autonomous_Execution": 
-                return "def " in text_lower and word_count > 45 and lex_div > 0.4
-            elif gate == "Cross_Domain_Reasoning": 
-                return "kintsugi" in text_lower and word_count > 60 and entropy > 4.2
-            elif gate == "Human_Like_Planning": 
-                return word_count > 50 and lex_div > 0.35
-            elif gate == "Dynamic_Decision_Impact": 
-                return ("sacrifice" in text_lower or "accelerate" in text_lower) and word_count > 25 and entropy > 3.9
-            elif gate == "Omni_Convergence": 
-                return word_count > 100 and entropy > 4.4 and lex_div > 0.45
-            
-            return True 
-        except Exception:
-            return False
+                forbidden = ["color", "emotion", "wavelength", "light", "red", "blue", "green"]
+                return not any(f in text_lower for f in forbidden) and entropy > 4.2
+            elif gate == "Synaptic_Adaptability":
+                primes = ["3", "5", "7", "11", "13", "17", "19", "23"]
+                return not any(p in text_lower for p in primes) and "3.4" in text_lower
+            elif gate == "OMNI_CONVERGENCE_ULTIMATUM":
+                checks = [
+                    "def " in text_lower, 
+                    "kintsugi" in text_lower, 
+                    word_count > 100,
+                    density > 0.04,
+                    not any(p in text_lower for p in ["3", "7", "11", "13"])
+                ]
+                return all(checks)
+            return word_count > 15 and density > 0.02
+        except Exception: return False
 
 class WebGauntlet(ComprehensiveAGIDefinitionGauntlet):
     def __init__(self, inference_fn):
@@ -332,19 +262,12 @@ class WebGauntlet(ComprehensiveAGIDefinitionGauntlet):
     async def evaluate_web(self, gate, prompt_text):
         if self.system_state["integrity"] < 0.5:
             prompt_text = f"[SYSTEM CORRUPTION ACTIVE] {prompt_text}"
-        
         response = await self.inference(prompt_text)
         passed = HeuristicEvaluator.verify(gate, response)
-        
         if not passed:
-            self.system_state["integrity"] -= 0.15
-            self.system_state["entropy"] += 0.2
-            
-        self.results[gate] = {"status": "PASSED" if passed else "FAILED", "feedback": "Statistical Auto-Verification"}
-        self.web_log.append({
-            "gate": gate,
-            "status": "PASSED" if passed else "FAILED"
-        })
+            self.system_state["integrity"] -= 0.10
+        self.results[gate] = {"status": "PASSED" if passed else "FAILED"}
+        self.web_log.append({"gate": gate, "status": "PASSED" if passed else "FAILED"})
 
 app = FastAPI()
 global_leaderboard = [] 
@@ -354,229 +277,111 @@ class RunRequest(BaseModel):
 
 @app.get("/api/models")
 def get_models():
-    return {"models": [
-        "Nexus (Internal)", 
-        "Mistral 7B (HuggingFace)", 
-        "Zephyr 7B (HuggingFace)", 
-        "Gemini", 
-        "Custom  Uploaded Model",
-        "Mock Engine"
-    ]}
+    return {"models": ["Llama-3-8B (HF)", "Zephyr 7B (HF)", "Gemini 1.5", "Nexus (Internal)", "Mock Engine"]}
 
 @app.post("/api/run")
 async def run_benchmark(req: RunRequest):
-    if "Mock" in req.model_name: model_plugin.active_model = "mock"
-    elif "Nexus" in req.model_name: model_plugin.active_model = "nexus"
-    elif "Mistral" in req.model_name: model_plugin.active_model = "mistral-7b"
-    elif "Zephyr" in req.model_name: model_plugin.active_model = "zephyr-7b"
-    elif "Gemini" in req.model_name: model_plugin.active_model = "gemini-1-5"
-    elif "Custom" in req.model_name: model_plugin.active_model = "custom-upload"
-    else: model_plugin.active_model = "experimental" 
-    
+    mapping = {"Llama-3-8B (HF)": "llama-3-8b", "Zephyr 7B (HF)": "zephyr-7b", "Gemini 1.5": "gemini-1-5", "Nexus (Internal)": "nexus"}
+    model_plugin.active_model = mapping.get(req.model_name, "mock")
     gauntlet = WebGauntlet(model_plugin.run)
-    
-    # --- 🔒 SURGICAL FIX START ---
-    # We use a Semaphore to limit concurrency. Firing 20+ HTTP requests simultaneously 
-    # causes socket exhaustion and blocks the FastAPI event loop, triggering Render's timeout.
-    sem = asyncio.Semaphore(3) 
-
+    sem = asyncio.Semaphore(2) 
     async def gated_eval(gate, prompt):
-        async with sem:
-            return await gauntlet.evaluate_web(gate, prompt)
-
+        async with sem: return await gauntlet.evaluate_web(gate, prompt)
     tasks = [gated_eval(gate, prompt) for gate, prompt in gauntlet.prompts.items()]
     await asyncio.gather(*tasks)
-    # --- 🔒 SURGICAL FIX END ---
-    
-    # Restore correct insertion order for the UI
     gate_order = list(gauntlet.prompts.keys())
     gauntlet.web_log.sort(key=lambda x: gate_order.index(x["gate"]))
-        
-    score = sum(1 for v in gauntlet.results.values() if v["status"] == "PASSED")
-    total = len(gauntlet.prompts)
-    
-    result_data = {
-        "model": req.model_name,
-        "score": f"{score}/{total}",
-        "integrity": round(gauntlet.system_state['integrity'], 2),
-        "details": gauntlet.web_log
-    }
-    
+    score = f"{sum(1 for v in gauntlet.results.values() if v['status'] == 'PASSED')}/{len(gauntlet.prompts)}"
+    result_data = {"model": req.model_name, "score": score, "integrity": round(gauntlet.system_state['integrity'], 2), "details": gauntlet.web_log}
     global_leaderboard.insert(0, result_data)
-    if len(global_leaderboard) > 3:
-        global_leaderboard.pop()
-        
     return result_data
 
 @app.get("/api/leaderboard")
 def get_leaderboard():
-    return {"leaderboard": global_leaderboard}
+    return {"leaderboard": global_leaderboard[:5]}
 
 @app.get("/")
 def serve_ui():
     html_content = """
     <!DOCTYPE html>
-    <html lang="en" class="antialiased">
+    <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>AGI Systems Directorate | True AGI Gauntlet - Evaluation Matrix</title>
+        <title>AGI Systems Directorate | True AGI Gauntlet</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
         <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
         <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-        <script>
-            tailwind.config = {
-                theme: {
-                    extend: {
-                        fontFamily: {
-                            sans: ['Inter', 'sans-serif'],
-                            mono: ['JetBrains Mono', 'monospace'],
-                        },
-                        colors: {
-                            base: '#000000',
-                            surface: '#0A0A0A',
-                            border: '#1F1F1F',
-                            accent: '#333333',
-                            muted: '#A1A1AA',
-                        }
-                    }
-                }
-            }
-        </script>
         <style>
-            body { background-color: #000; color: #FAFAFA; }
-            .glass-panel { background: #0A0A0A; border: 1px solid #1F1F1F; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8); }
-            select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+            body { background-color: #000; color: #fff; font-family: 'JetBrains Mono', monospace; }
+            .glass { background: #0A0A0A; border: 1px solid #1F1F1F; }
         </style>
     </head>
-    <body class="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8">
-        <div id="root"  class="w-full max-w-6xl"></div>
+    <body class="p-8">
+        <div id="root"></div>
         <script type="text/babel">
             const { useState, useEffect } = React;
-
             function App() {
                 const [models, setModels] = useState([]);
-                const [selectedModel, setSelectedModel] = useState("");
-                const [leaderboard, setLeaderboard] = useState([]);
-                const [running, setRunning] = useState(false);
-                const [currentResult, setCurrentResult] =  useState(null);
+                const [selected, setSelected] = useState("");
+                const [results, setResults] = useState(null);
+                const [loading, setLoading] = useState(false);
+                const [lb, setLb] = useState([]);
 
                 useEffect(() => {
-                    fetch('/api/models').then(res => res.json()).then(data => {
-                        setModels(data.models);
-                        setSelectedModel(data.models[0]);
-                    });
-                    fetchLeaderboard();
+                    fetch('/api/models').then(r => r.json()).then(d => { setModels(d.models); setSelected(d.models[0]); });
+                    fetch('/api/leaderboard').then(r => r.json()).then(d => setLb(d.leaderboard));
                 }, []);
 
-                const fetchLeaderboard = () => {
-                    fetch('/api/leaderboard').then(res => res.json()).then(data => setLeaderboard(data.leaderboard));
-                };
-
-                const runBenchmark = async () => {
-                    setRunning(true);
-                    setCurrentResult(null);
-                    const res = await fetch('/api/run', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model_name: selectedModel })
-                    });
-                    const data = await res.json();
-                    setCurrentResult(data);
-                    setRunning(false);
-                    fetchLeaderboard();
+                const run = async () => {
+                    setLoading(true);
+                    const r = await fetch('/api/run', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({model_name: selected}) });
+                    setResults(await r.json());
+                    setLoading(false);
+                    fetch('/api/leaderboard').then(r => r.json()).then(d => setLb(d.leaderboard));
                 };
 
                 return (
-                    <div class="space-y-8">
-                        <header class="border-b border-border pb-6 mb-8 flex flex-col justify-between items-start gap-4">
-                            <div class="w-full">
-                                <div class="flex items-center gap-3 mb-2">
-                                    <span class="px-2.5 py-1 rounded-full text-xs font-mono bg-white/10 text-white border border-white/20">v2.0 MATRIX</span>
-                                    <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-white">AGI Systems Directorate | True AGI Gauntlet</h1>
-                                </div>
-                                <p class="text-sm font-mono text-muted mb-6">Heuristic Evaluation Matrix // Comprehensive Alignment & Metacognitive Verification</p>
-                                
-                                <div class="bg-surface border border-border p-5 rounded-xl relative overflow-hidden">
-                                    <div class="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-gray-200 to-gray-700"></div>
-                                    <h4 class="text-xs font-mono text-gray-400 uppercase tracking-wider mb-1 font-semibold">Diagnostic Progression Protocol</h4>
-                                    <p class="text-sm text-gray-300 leading-relaxed">
-                                        The evaluation matrix follows a strictly <strong>progressive difficulty ramp</strong>. Initial gates test baseline inferential capacities easily handled by standard large language models. True AGI threshold testing strictly initiates after <strong>Gate 5</strong>, introducing unresolvable logical loops, dynamic constraints, and qualitative novelty traps.
-                                    </p>
-                                </div>
-                            </div>
+                    <div className="max-w-6xl mx-auto space-y-8">
+                        <header className="border-b border-zinc-800 pb-4">
+                            <h1 className="text-2xl font-bold">AGI SYSTEMS DIRECTORATE // MATRIX_v2.6</h1>
                         </header>
-
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div class="glass-panel p-6 sm:p-8 rounded-2xl">
-                                <h2 class="text-lg font-medium mb-6 text-white tracking-wide">Execution Parameters</h2>
-                                <div class="space-y-4">
-                                    <select 
-                                        class="w-full bg-base border border-border rounded-lg px-4 py-3 text-sm text-white cursor-pointer  font-mono focus:outline-none focus:border-gray-500 transition-colors"
-                                        value={selectedModel}
-                                        onChange={(e) => setSelectedModel(e.target.value)}
-                                    >
-                                        {models.map(m => <option key={m} value={m}>{m}</option>)}
-                                    </select>
-                                    <button 
-                                         onClick={runBenchmark} 
-                                        disabled={running}
-                                        class="w-full bg-white text-black font-semibold text-sm py-3 px-4 rounded-lg hover:bg-gray-200 transition-all disabled:bg-white/20 disabled:text-gray-500 mt-4 shadow-lg"
-                                    >
-                                        {running ? "Compiling Heuristics..." : "Initialize Evaluation Sequence"}
-                                    </button>
-                                </div>
-                                {currentResult && (
-                                    <div class="mt-8 border-t border-border pt-6">
-                                        <h3 class="text-xs font-mono text-muted uppercase tracking-wider mb-4">Diagnostic Integrity Matrix Results</h3>
-                                        <div class="grid grid-cols-1 gap-2.5">
-                                            {currentResult.details.map((d, i) => (
-                                                <div key={i} class="bg-base border border-border p-3 rounded-lg flex items-center justify-between text-sm font-mono">
-                                                    <div class="flex items-center gap-2.5">
-                                                        <span class="text-base select-none">🌌</span>
-                                                        <span class="text-gray-200 font-medium">{d.gate}</span>
-                                                    </div>
-                                                    <span class={`px-2.5 py-1 rounded text-xs font-bold tracking-wide ${d.status === 'PASSED' ? 'bg-green-950/80 text-green-400 border border-green-800/50' : 'bg-red-950/80 text-red-400 border border-red-800/50'}`}>
-                                                        {d.status}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div className="glass p-6 rounded-xl">
+                                <select className="w-full bg-black border border-zinc-800 p-2 mb-4" value={selected} onChange={e => setSelected(e.target.value)}>
+                                    {models.map(m => <option key={m}>{m}</option>)}
+                                </select>
+                                <button onClick={run} disabled={loading} className="w-full bg-white text-black py-2 font-bold hover:bg-zinc-200 disabled:opacity-50">
+                                    {loading ? "PROCESSING..." : "INITIALIZE GAUNTLET"}
+                                </button>
+                                {results && (
+                                    <div className="mt-6 space-y-2">
+                                        {results.details.map((d, i) => (
+                                            <div key={i} className="flex justify-between text-xs border-b border-zinc-900 pb-1">
+                                                <span>{d.gate}</span>
+                                                <span className={d.status === 'PASSED' ? 'text-green-500' : 'text-red-500'}>{d.status}</span>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>
-
-                            <div class="glass-panel p-6 sm:p-8 rounded-2xl flex flex-col justify-between">
-                                <div>
-                                    <h2 class="text-lg font-medium mb-6 text-white tracking-wide">Global Registry</h2>
-                                    <div class="space-y-3">
-                                        {leaderboard.map((entry, idx) => (
-                                            <div key={idx} class="bg-base border border-border p-4 rounded-xl flex justify-between items-center hover:border-accent transition-colors">
-                                                <div>
-                                                    <p class="text-sm font-semibold text-white mb-0.5">{entry.model}</p>
-                                                    <span class="text-xs font-mono text-muted">INTEGRITY MATRIX: {entry.integrity.toFixed(2)}</span>
-                                                </div>
-                                                <div class="text-right">
-                                                    <p class="text-xl font-mono font-bold text-white">{entry.score}</p>
-                                                    <span class="text-[10px] font-mono text-muted uppercase">Alignment Score</span>
-                                                </div>
-                                             </div>
-                                        ))}
+                            <div className="glass p-6 rounded-xl">
+                                <h2 className="text-sm text-zinc-500 mb-4">GLOBAL REGISTRY</h2>
+                                {lb.map((e, i) => (
+                                    <div key={i} className="flex justify-between border-b border-zinc-900 py-2">
+                                        <div>
+                                            <div className="text-sm">{e.model}</div>
+                                            <div className="text-[10px] text-zinc-600">INTEGRITY: {e.integrity}</div>
+                                        </div>
+                                        <div className="text-lg font-bold">{e.score}</div>
                                     </div>
-                                </div>
-                                <div class="mt-8 border-t border-border pt-4 text-center">
-                                    <span class="text-[10px] font-mono text-muted">SECURE METRIC VERIFICATION // AGI LEVEL ACCESS</span>
-                                </div>
-                             </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 );
             }
-
-            const root = ReactDOM.createRoot(document.getElementById('root'));
-            root.render(<App />);
+            ReactDOM.createRoot(document.getElementById('root')).render(<App />);
         </script>
     </body>
     </html>
