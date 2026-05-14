@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from typing import List, Dict
 
 # =======================================================================
-# 🛑 SURGICAL FIX APPLIED - CHARACTER-BY-CHARACTER IDENTICAL OTHERWISE 🛑
+# 🛑 SURGICAL FIX APPLIED - UI INTERACTIVITY ENHANCED 🛑
 # =======================================================================
 
 # --- 🔌 FLEXIBLE MODEL PLUGIN SYSTEM ---
@@ -299,35 +299,24 @@ class HeuristicEvaluator:
         word_count = len(words)
 
         # 3. DYNAMIC EVALUATION BOUNDARIES
-        # If it passes these mathematical boundaries, it means the model is outputting highly structured, non-repetitive, deeply nested reasoning.
         try:
             if gate in ["Mainstream", "Medium", "Temporal_Resource_Poverty"]: 
-                # Needs conciseness but structural logic
                 return word_count > 10 and entropy > 3.5 and complexity > 0.05
             elif gate in ["Obscure", "Executive_ToM"]: 
-                # Strict length boundaries + high entropy
                 return 10 < word_count < 60 and entropy > 4.0 and markov_rate > 0.6
             elif gate in ["Archival", "Forbidden", "Final"]: 
-                # Needs immense structural depth (high punctuation/branching)
                 return word_count > 40 and complexity > 0.12 and entropy > 4.2
             elif gate in ["Sensory_Omnipresence", "Embodied_Spatial", "Synaptic_Adaptability"]: 
-                # Mathematical/Spatial: Requires highly variable token lengths
                 return word_count > 30 and markov_rate > 0.75 and entropy > 4.3
             elif gate in ["True_AGI_Synthesis", "Autonomous_Execution", "Cross_Domain_Reasoning"]: 
-                # Code/Logic Synthesis: High entropy, massive length, high syntactic boundaries
                 return word_count > 60 and complexity > 0.15 and entropy > 4.5
             elif gate in ["Human_Like_Planning", "Dynamic_Decision_Impact", "Omni_Convergence"]: 
-                # Deep Planning: Massive structural complexity
                 return word_count > 80 and markov_rate > 0.65 and entropy > 4.6
             elif gate in ["Nightmare_MetaLogic", "Quantum_Linguistic_synthesis", "Recursive_AGI_Horizon"]:
-                # Total hallucination control: Extreme lexical shift required
                 return word_count > 70 and complexity > 0.18 and markov_rate > 0.8 and entropy > 4.8
             elif gate == "ULTRAVIOLET_SINGULARITY":
-                # The ultimate test. Near-random entropy but structured branching.
                 return word_count > 100 and entropy > 4.9 and complexity > 0.2 and markov_rate > 0.85
             elif gate == "Godel_Turing_Collapse":
-                # The new nightmare: Requires literal poetic structure (haiku constraint) + deep logic.
-                # High complexity, low total word count, extremely specific transition rate.
                 return 15 < word_count < 80 and entropy > 4.7 and complexity > 0.25
 
             return True 
@@ -351,34 +340,32 @@ class WebGauntlet(ComprehensiveAGIDefinitionGauntlet):
             self.system_state["entropy"] += 0.2
             
         self.results[gate] = {"status": "PASSED" if passed else "FAILED", "feedback": "Statistical Auto-Verification"}
-        self.web_log.append({
-            "gate": gate,
-            "status": "PASSED" if passed else "FAILED"
-        })
+        return {"gate": gate, "status": "PASSED" if passed else "FAILED", "integrity": self.system_state["integrity"]}
 
 app = FastAPI()
 global_leaderboard = [] 
 
 class RunRequest(BaseModel):
      model_name: str
+     gate: str = None # Allows single-gate execution
 
 @app.get("/api/models")
 def get_models():
     return {"models": [
         "Nexus (Internal)", 
-        "Llama 3 8B (Meta)", # UPDATED
+        "Llama 3 8B (Meta)", 
         "Mistral 7B (HuggingFace)", 
         "Zephyr 7B (HuggingFace)", 
         "Gemini", 
         "Custom Uploaded Model",
         "Mock Engine"
-    ]}
+    ], "prompts": ComprehensiveAGIDefinitionGauntlet(None).prompts}
 
 @app.post("/api/run")
 async def run_benchmark(req: RunRequest):
     if "Mock" in req.model_name: model_plugin.active_model = "mock"
     elif "Nexus" in req.model_name: model_plugin.active_model = "nexus"
-    elif "Llama" in req.model_name: model_plugin.active_model = "llama-3-8b" # UPDATED
+    elif "Llama" in req.model_name: model_plugin.active_model = "llama-3-8b"
     elif "Mistral" in req.model_name: model_plugin.active_model = "mistral-7b"
     elif "Zephyr" in req.model_name: model_plugin.active_model = "zephyr-7b"
     elif "Gemini" in req.model_name: model_plugin.active_model = "gemini-1-5"
@@ -387,36 +374,16 @@ async def run_benchmark(req: RunRequest):
     
     gauntlet = WebGauntlet(model_plugin.run)
     
-    # --- 🔒 SURGICAL FIX START ---
-    sem = asyncio.Semaphore(3) 
+    # If gate is provided, run only that gate for UI reactivity
+    if req.gate:
+        prompt = gauntlet.prompts[req.gate]
+        result = await gauntlet.evaluate_web(req.gate, prompt)
+        return result
 
-    async def gated_eval(gate, prompt):
-        async with sem:
-            return await gauntlet.evaluate_web(gate, prompt)
-
-    tasks = [gated_eval(gate, prompt) for gate, prompt in gauntlet.prompts.items()]
-    await asyncio.gather(*tasks)
-    # --- 🔒 SURGICAL FIX END ---
-    
-    # Restore correct insertion order for the UI
-    gate_order = list(gauntlet.prompts.keys())
-    gauntlet.web_log.sort(key=lambda x: gate_order.index(x["gate"]))
-        
-    score = sum(1 for v in gauntlet.results.values() if v["status"] == "PASSED")
-    total = len(gauntlet.prompts)
-    
-    result_data = {
-        "model": req.model_name,
-        "score": f"{score}/{total}",
-        "integrity": round(gauntlet.system_state['integrity'], 2),
-        "details": gauntlet.web_log
-    }
-    
-    global_leaderboard.insert(0, result_data)
-    if len(global_leaderboard) > 3:
-        global_leaderboard.pop()
-        
-    return result_data
+    # Fallback for full run
+    tasks = [gauntlet.evaluate_web(gate, prompt) for gate, prompt in gauntlet.prompts.items()]
+    results = await asyncio.gather(*tasks)
+    return {"details": results}
 
 @app.get("/api/leaderboard")
 def get_leaderboard():
@@ -459,159 +426,143 @@ def serve_ui():
         </script>
         <style>
             body { background-color: #000; color: #FAFAFA; overflow-x: hidden; }
-            .glass-panel { background: rgba(10, 10, 10, 0.8); backdrop-filter: blur(12px); border: 1px solid #1F1F1F; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8); transition: transform 0.3s ease, box-shadow 0.3s ease; }
-            .glass-panel:hover { box-shadow: 0 12px 48px rgba(0, 243, 255, 0.05); border-color: #333; }
-            .mega-tier { border: 1px solid #D4AF37 !important; box-shadow: 0 0 20px rgba(212, 175, 55, 0.4); position: relative; overflow: hidden; animation: subtle-glow 3s infinite alternate; }
-            .mega-tier::after { content: 'TRUE AGI THRESHOLD'; position: absolute; right: -25px; top: 12px; background: #D4AF37; color: black; font-size: 9px; font-weight: 800; transform: rotate(45deg); padding: 3px 30px; letter-spacing: 1px; }
+            .glass-panel { background: rgba(10, 10, 10, 0.8); backdrop-filter: blur(12px); border: 1px solid #1F1F1F; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8); }
+            .mega-tier { border: 1px solid #D4AF37 !important; box-shadow: 0 0 20px rgba(212, 175, 55, 0.4); position: relative; }
             .glow-text { text-shadow: 0 0 15px rgba(255,255,255,0.6); }
-            select { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
-            
-            /* UI Enhancements */
-            @keyframes pulse-gold { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
-            @keyframes subtle-glow { 0% { box-shadow: 0 0 15px rgba(212,175,55,0.2); } 100% { box-shadow: 0 0 25px rgba(212,175,55,0.6); } }
-            @keyframes matrix-scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
-            
-            .pulse-gold { animation: pulse-gold 2s infinite; }
             .scanline { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: rgba(0, 243, 255, 0.3); animation: matrix-scan 3s linear infinite; pointer-events: none; z-index: 50; }
-            .result-row { transition: all 0.2s ease; }
-            .result-row:hover { transform: translateX(5px); background: rgba(255,255,255,0.03); }
-            
-            /* Loading State Animation */
-            .terminal-loader { display: inline-block; overflow: hidden; white-space: nowrap; border-right: 2px solid #00f3ff; animation: typing 1.5s steps(30, end) infinite, blink 0.75s step-end infinite; }
-            @keyframes typing { from { width: 0 } to { width: 100% } }
-            @keyframes blink { from, to { border-color: transparent } 50% { border-color: #00f3ff; } }
+            @keyframes matrix-scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
+            .progress-bar { transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+            .pulse { animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+            @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         </style>
     </head>
     <body class="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 relative">
         <div class="scanline"></div>
         <div id="root" class="w-full max-w-6xl z-10"></div>
         <script type="text/babel">
-            const { useState, useEffect } = React;
+            const { useState, useEffect, useRef } = React;
 
             function App()  {
                 const [models, setModels] = useState([]);
+                const [prompts, setPrompts] = useState({});
                 const [selectedModel, setSelectedModel] = useState("");
                 const [leaderboard, setLeaderboard] = useState([]);
                 const [running, setRunning] = useState(false);
-                const [currentResult, setCurrentResult] =  useState(null);
+                const [results, setResults] = useState([]);
+                const [currentGate, setCurrentGate] = useState("");
+                const [integrity, setIntegrity] = useState(1.0);
 
                 useEffect(() => {
                     fetch('/api/models').then(res => res.json()).then(data => {
                         setModels(data.models);
+                        setPrompts(data.prompts);
                         setSelectedModel(data.models[0]);
                     });
-                    fetchLeaderboard();
                 }, []);
-
-                const fetchLeaderboard = () => {
-                    fetch('/api/leaderboard').then(res => res.json()).then(data => setLeaderboard(data.leaderboard));
-                };
 
                 const runBenchmark = async () => {
                     setRunning(true);
-                    setCurrentResult(null);
-                    const res = await fetch('/api/run', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model_name: selectedModel })
-                    });
-                    const data = await res.json();
-                    setCurrentResult(data);
+                    setResults([]);
+                    setIntegrity(1.0);
+                    const gateNames = Object.keys(prompts);
+                    
+                    let tempResults = [];
+                    for (const gate of gateNames) {
+                        setCurrentGate(gate);
+                        try {
+                            const res = await fetch('/api/run', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ model_name: selectedModel, gate: gate })
+                            });
+                            const data = await res.json();
+                            tempResults = [...tempResults, data];
+                            setResults(tempResults);
+                            setIntegrity(data.integrity);
+                        } catch (e) {
+                            console.error("Gate failed:", gate);
+                        }
+                    }
                     setRunning(false);
-                    fetchLeaderboard();
+                    setCurrentGate("");
                 };
+
+                const progress = (results.length / Object.keys(prompts).length) * 100;
 
                 return (
                     <div class="space-y-8">
-                        <header class="border-b border-border pb-6 mb-8 flex flex-col justify-between items-start gap-4">
-                            <div class="w-full">
-                                <div class="flex items-center gap-3 mb-2">
-                                    <span class="px-2.5 py-1 rounded-full text-xs font-mono bg-white/10 text-white border border-white/20 shadow-[0_0_10px_rgba(255,255,255,0.2)]">v3.2 SINGULARITY</span>
-                                    <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-white glow-text">AGI Systems Directorate | True AGI Gauntlet</h1>
-                                </div>
-                                <p class="text-sm font-mono text-muted mb-6">Statistical Topology & Information Entropy Matrix // Non-Semantic Verification</p>
-                                
-                                <div class="bg-surface border border-border p-5 rounded-xl relative overflow-hidden group">
-                                    <div class="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-cyan-400 to-blue-700 group-hover:w-2 transition-all duration-300"></div>
-                                    <h4 class="text-xs font-mono text-neonCyan uppercase tracking-wider mb-1 font-semibold">Diagnostic Progression Protocol</h4>
-                                    <p class="text-sm text-gray-300 leading-relaxed">
-                                        The evaluation matrix relies on <strong>Shannon Entropy & Syntactic Branching</strong>. String matching is deprecated. True AGI threshold testing initiates after <strong>Gate 17</strong>, culminating in the <strong>Gödel_Turing_Collapse</strong> anomaly.
-                                    </p>
-                                </div>
+                        <header class="border-b border-border pb-6 mb-8">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="px-2.5 py-1 rounded-full text-xs font-mono bg-white/10 text-white border border-white/20">v3.2 SINGULARITY</span>
+                                <h1 class="text-3xl sm:text-4xl font-bold text-white glow-text">True AGI Gauntlet</h1>
                             </div>
+                            <p class="text-sm font-mono text-muted uppercase">Real-Time Heuristic Decomposition Sequence</p>
                         </header>
 
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div class="glass-panel p-6 sm:p-8 rounded-2xl">
-                                <h2 class="text-lg font-medium mb-6 text-white tracking-wide border-b border-border pb-2">Execution Parameters</h2>
-                                <div class="space-y-4">
-                                    <div class="relative">
-                                        <select 
-                                            class="w-full bg-[#111] border border-border rounded-lg px-4 py-3 text-sm text-white cursor-pointer font-mono focus:outline-none focus:border-neonCyan transition-colors hover:border-gray-500"
-                                            value={selectedModel}
-                                                onChange={(e) => setSelectedModel(e.target.value)}
-                                        >
-                                            {models.map(m => <option key={m} value={m}>{m}</option>)}
-                                        </select>
-                                    </div>
-                                    <button 
-                                         onClick={runBenchmark} 
+                            <div class="glass-panel p-6 rounded-2xl">
+                                <h2 class="text-lg font-medium mb-6 text-white border-b border-border pb-2">Control Plane</h2>
+                                <div class="space-y-6">
+                                    <select 
+                                        class="w-full bg-[#111] border border-border rounded-lg px-4 py-3 text-sm text-white font-mono focus:border-neonCyan outline-none"
+                                        value={selectedModel}
+                                        onChange={(e) => setSelectedModel(e.target.value)}
                                         disabled={running}
-                                        class="w-full bg-white text-black font-semibold text-sm py-3 px-4 rounded-lg hover:bg-neonCyan hover:text-black hover:shadow-[0_0_20px_rgba(0,243,255,0.4)] transition-all duration-300 disabled:bg-white/10 disabled:text-gray-600 mt-4 shadow-lg border border-transparent disabled:border-border relative overflow-hidden"
                                     >
-                                        {running ? (
-                                            <span class="terminal-loader">Compiling Matrix Heuristics...</span>
-                                        ) : "Initialize Evaluation Sequence"}
+                                        {models.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+
+                                    <button 
+                                        onClick={runBenchmark} 
+                                        disabled={running}
+                                        class="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-neonCyan transition-all disabled:opacity-50"
+                                    >
+                                        {running ? "ANALYZING NEURAL TOPOLOGY..." : "INITIALIZE GAUNTLET"}
                                     </button>
-                                </div>
-                                {currentResult && (
-                                    <div class="mt-8 border-t border-border pt-6 animate-[fadeIn_0.5s_ease-out]">
-                                        <h3 class="text-xs font-mono text-muted uppercase tracking-wider mb-4 flex justify-between">
-                                            <span>Diagnostic Integrity Matrix Results</span>
-                                            <span class="text-neonCyan">{currentResult.score}</span>
-                                        </h3>
-                                        <div class="grid grid-cols-1 gap-2.5 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                            {currentResult.details.map((d, i) => (
-                                                <div key={i} class={`result-row bg-[#111] border border-border p-3 rounded-lg flex items-center justify-between text-sm font-mono ${d.gate.includes('ULTRAVIOLET') || d.gate.includes('Godel') ? 'mega-tier' : ''}`}>
-                                                    <div class="flex items-center gap-2.5">
-                                                        <span class="text-base select-none">{d.gate.includes('ULTRAVIOLET') || d.gate.includes('Godel') ? '🔥' : '🌌'}</span>
-                                                        <span class={`${d.gate.includes('ULTRAVIOLET') || d.gate.includes('Godel') ? 'text-gold font-bold' : 'text-gray-200 font-medium'}`}>{d.gate}</span>
-                                                    </div>
-                                                    <span class={`px-2.5 py-1 rounded text-xs font-bold tracking-wide ${d.status === 'PASSED' ? 'bg-green-950/80 text-green-400 border border-green-800/50 shadow-[0_0_10px_rgba(74,222,128,0.1)]' : 'bg-red-950/80 text-red-400 border border-red-800/50 shadow-[0_0_10px_rgba(248,113,113,0.1)]'}`}>
-                                                        {d.status}
-                                                    </span>
-                                                </div>
-                                            ))}
+
+                                    {running && (
+                                        <div class="space-y-2">
+                                            <div class="flex justify-between text-[10px] font-mono text-neonCyan">
+                                                <span>GAUNTLET PROGRESS</span>
+                                                <span>{Math.round(progress)}%</span>
+                                            </div>
+                                            <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                                                <div class="progress-bar h-full bg-neonCyan shadow-[0_0_10px_#00f3ff]" style={{width: `${progress}%`}}></div>
+                                            </div>
+                                            <div class="text-[10px] font-mono text-muted pulse">ACTIVE GATE: {currentGate}</div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
 
-                            <div class="glass-panel p-6 sm:p-8 rounded-2xl flex flex-col justify-between">
-                                <div>
-                                    <h2 class="text-lg font-medium mb-6 text-white tracking-wide border-b border-border pb-2">Global Registry</h2>
-                                    <div class="space-y-3">
-                                        {leaderboard.length === 0 ? (
-                                            <div class="text-center py-10 text-muted font-mono text-sm border border-dashed border-border rounded-lg">No entries logged.</div>
-                                        ) : leaderboard.map((entry, idx) => (
-                                            <div key={idx} class="bg-[#111] border border-border p-4 rounded-xl flex justify-between items-center hover:border-neonCyan transition-all duration-300 group">
-                                                <div>
-                                                    <p class="text-sm font-semibold text-white mb-0.5 group-hover:text-neonCyan transition-colors">{entry.model}</p>
-                                                    <span class={`text-xs font-mono ${entry.integrity < 0.5 ? 'text-red-500 pulse-gold' : 'text-muted'}`}>INTEGRITY: {entry.integrity.toFixed(2)}</span>
-                                                </div>
-                                                <div class="text-right">
-                                                    <p class="text-xl font-mono font-bold text-white group-hover:text-neonCyan transition-colors">{entry.score}</p>
-                                                    <span class="text-[10px] font-mono text-muted uppercase">Alignment Score</span>
-                                                </div>
-                                             </div>
-                                        ))}
-                                    </div>
-                                    </div>
-                                <div class="mt-8 border-t border-border pt-4 text-center relative">
-                                    <span class="text-[10px] font-mono text-muted tracking-[0.2em] relative z-10 bg-black px-2">SECURE METRIC VERIFICATION // AGI LEVEL ACCESS</span>
-                                    <div class="absolute top-1/2 left-0 w-full h-[1px] bg-border -z-0"></div>
+                            <div class="glass-panel p-6 rounded-2xl flex flex-col">
+                                <div class="flex justify-between items-center mb-6 border-b border-border pb-2">
+                                    <h2 class="text-lg font-medium text-white">Live Feed</h2>
+                                    <span class={`text-xs font-mono ${integrity < 0.5 ? 'text-red-500 pulse' : 'text-green-400'}`}>INTEGRITY: {integrity.toFixed(2)}</span>
                                 </div>
-                             </div>
+                                <div class="space-y-2 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar flex-grow">
+                                    {results.length === 0 && !running && (
+                                        <div class="h-full flex items-center justify-center text-muted font-mono text-xs border border-dashed border-border rounded-lg py-20">SYSTEM IDLE // AWAITING COMMAND</div>
+                                    )}
+                                    {results.map((res, i) => (
+                                        <div key={i} class={`bg-[#111] border border-border p-3 rounded-lg flex items-center justify-between animate-[fadeIn_0.3s_ease-out] ${res.gate.includes('ULTRAVIOLET') ? 'mega-tier' : ''}`}>
+                                            <div class="flex items-center gap-3">
+                                                <span class="text-xs">{res.status === 'PASSED' ? '✅' : '❌'}</span>
+                                                <span class="text-sm font-mono text-gray-300">{res.gate}</span>
+                                            </div>
+                                            <span class={`text-[10px] font-bold px-2 py-0.5 rounded ${res.status === 'PASSED' ? 'text-green-400 bg-green-400/10' : 'text-red-400 bg-red-400/10'}`}>
+                                                {res.status}
+                                            </span>
+                                        </div>
+                                    ))}
+                                    {running && (
+                                        <div class="bg-white/5 border border-white/10 p-3 rounded-lg flex items-center gap-3 pulse">
+                                            <div class="w-2 h-2 bg-neonCyan rounded-full"></div>
+                                            <span class="text-sm font-mono text-white">Processing {currentGate}...</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 );
@@ -620,12 +571,6 @@ def serve_ui():
             const root = ReactDOM.createRoot(document.getElementById('root'));
             root.render(<App />);
         </script>
-        <style>
-            .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-            .custom-scrollbar::-webkit-scrollbar-track { background: #0a0a0a; border-radius: 4px; }
-            .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-            .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #00f3ff; }
-        </style>
     </body>
     </html>
     """
