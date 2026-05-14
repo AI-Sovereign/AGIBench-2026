@@ -89,8 +89,9 @@ class ModelConnector:
             try:
                 api_key = os.getenv("GOOGLE_API_KEY", "").strip()
                 headers = {"Content-Type": "application/json"}
+                # SURGICAL FIX: Updated endpoint to the correct "Flash-8B" model identifier
                 resp = await client.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key={api_key}",
                     headers=headers,
                     json={"contents": [{"parts": [{"text": prompt}]}]},
                     timeout=30.0
@@ -260,6 +261,7 @@ def serve_ui():
                 const [results, setResults] = useState([]);
                 const [running, setRunning] = useState(false);
                 const [integrity, setIntegrity] = useState(1.0);
+                const [interactiveScore, setInteractiveScore] = useState(0); // SURGICAL ADDITION
                 
                 const [selectedModel, setSelectedModel] = useState("aeterna-vox");
                 const [selectedJudge, setSelectedJudge] = useState("gemini-3-flash");
@@ -273,7 +275,7 @@ def serve_ui():
                 }, []);
 
                 const runAll = async () => {
-                    setRunning(true); setResults([]); setIntegrity(1.0);
+                    setRunning(true); setResults([]); setIntegrity(1.0); setInteractiveScore(0);
                     const gateKeys = Object.keys(prompts);
                     for (const gate of gateKeys) {
                         try {
@@ -399,9 +401,17 @@ def serve_ui():
                                         </div>
                                     ))}
                                     {running && (
-                                        <div className="text-emerald-500 animate-pulse pt-4 pb-2 mono-text text-xs font-bold pl-2 flex items-center gap-2">
-                                            <svg className="animate-spin h-4 w-4 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                            CALIBRATING NEURAL WEIGHTS & INGESTING STIMULUS...
+                                        <div 
+                                            onClick={() => setInteractiveScore(s => s + 1)}
+                                            className="mt-4 p-4 border border-emerald-500/30 rounded-lg bg-emerald-500/5 text-center cursor-pointer hover:bg-emerald-500/10 transition-colors"
+                                        >
+                                            <div className="text-emerald-500 animate-pulse pt-2 mono-text text-xs font-bold flex justify-center items-center gap-2">
+                                                <svg className="animate-spin h-4 w-4 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                CALIBRATING NEURAL WEIGHTS (CLICK TO STABILIZE)
+                                            </div>
+                                            <div className="text-zinc-400 text-[10px] mt-2 font-bold mono-text uppercase tracking-widest">
+                                                Manual Overrides Applied: {interactiveScore}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
