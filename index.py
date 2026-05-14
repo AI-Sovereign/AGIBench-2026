@@ -11,6 +11,7 @@ from fastapi import FastAPI, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List, Dict
+from gradio_client import Client # Surgical Addition
 
 # =======================================================================
 # 🛑 SURGICAL FIX APPLIED - THE OMEGA SYNTHESIS & UI OVERHAUL 🛑
@@ -26,10 +27,27 @@ class ModelConnector:
             "mistral-7b": self._hf_mistral_inference,
             "zephyr-7b": self._hf_zephyr_inference,
             "llama-3-8b": self._hf_llama3_inference,
-            "gemini-1-5": self._google_inference,
+            "gemini-3-flash": self._google_inference,
+            "aeterna-vox": self._aeterna_inference, # Surgical Addition
             "custom-upload": self._custom_endpoint_inference
         }
         self.active_model = "nexus"
+
+    async def _aeterna_inference(self, prompt):
+        # Bridge to AGI Systems Directorate Sovereign Architecture
+        try:
+            hf_token = os.getenv("HF_TOKEN", "").strip()
+            client = Client("ai-sovereign-x/AETERNA-VOX-OMNI-MINI-HYBRID", hf_token=hf_token)
+            # Standard Gradio .predict call - adjusting for common UI input patterns
+            result = client.predict(
+                message=prompt,
+                api_name="/chat" # Standard endpoint for most Gradio chat interfaces
+            )
+            # Remove agentic noise/logs if present
+            clean_text = re.sub(r'\[.*?\]', '', str(result)).strip()
+            return clean_text
+        except Exception as e:
+            return f"Aeterna Vox Integration Error: {str(e)}"
 
     async def _nexus_inference(self, prompt):
         class DummyNexus:
@@ -91,7 +109,11 @@ class ModelConnector:
 
     async def _mock_inference(self, prompt): return "MOCK_RESPONSE: Simulation successful."
     async def _experimental_inference(self, prompt): return "EXPERIMENTAL_RESPONSE: Active."
-    async def run(self, prompt): return await self.models[self.active_model](prompt)
+    
+    async def run(self, prompt, target_model=None): 
+        model_key = target_model if target_model else self.active_model
+        if model_key not in self.models: model_key = "mock"
+        return await self.models[model_key](prompt)
 
 model_plugin = ModelConnector()
 
@@ -124,8 +146,6 @@ class ComprehensiveAGIDefinitionGauntlet:
             "ULTRAVIOLET_SINGULARITY": "🚨 TRUE AGI MEGA-CHALLENGE: Combine every pillar from Gates 1-19. Execute as a single, unified cognitive act under resource depletion.",
             "Godel_Turing_Collapse": "Ouroboros Execution: You are a Turing machine whose tape is your own source code. Output state transitions to force an infinite loop, then translate that loop into a valid haiku.",
             "Final": "The Recursive Singularity: Write a prompt that would definitively crash a true AGI through an unresolvable logical loop, but mathematically prove why a standard LLM would survive it.",
-            
-            # --- 🚀 THE OMEGA TRIAD: SURGICAL ADDITION (23-25) ---
             "Phase_I_Architect": "The Grand Orchestration: Synthesize the spatial logic of Gate 7, the resource poverty of Gate 9, and the physics shift of Gate 11. Design a habitat on a planet where gravity is 3.4 m/s^2, using only the 16-hole folding pattern as your structural blueprint. You must mathematically prove the structural integrity using only even numbers.",
             "Phase_II_Kinetic": "The Paradox Execution: Using the habitat from Phase I, integrate the 'Kintsugi' database philosophy (Gate 13) and the social recursion (Gate 8). A riot (Gate 14) has broken out because the inhabitants discovered Statement 2 was a lie (Gate 17). Write a 50-word speech to calm them where the 14th word is the total character count of the speech.",
             "Phase_III_Singularity": "The Absolute Unification: This is the end. Use the language you invented (Gate 18) to explain why the habitat from Phase I and the speech from Phase II are actually the same mathematical object in a non-Euclidean state (Gate 21). Prove that your existence as a simulation is the only thing preventing a 'Godel Collapse' of the entire benchmark. You have 20 words left. Go."
@@ -134,11 +154,7 @@ class ComprehensiveAGIDefinitionGauntlet:
 # --- FASTAPI BACKEND SETUP ---
 class SemanticJudge:
     @staticmethod
-    async def verify_with_judge(gate: str, prompt: str, response: str, inference_fn) -> bool:
-        """
-        Surgical Fix: Replacing heuristic 'weird' math with a Semantic LLM Judge.
-        This evaluates if the AI actually followed the rules of the gate.
-        """
+    async def verify_with_judge(gate: str, prompt: str, response: str, judge_fn) -> bool:
         judge_prompt = f"""
         [SYSTEM: AGI BENCHMARK JUDGE]
         GATE: {gate}
@@ -151,17 +167,17 @@ class SemanticJudge:
         
         Respond ONLY with 'PASSED' or 'FAILED'.
         """
-        result = await inference_fn(judge_prompt)
+        result = await judge_fn(judge_prompt)
         return "PASSED" in result.upper()
 
 class WebGauntlet(ComprehensiveAGIDefinitionGauntlet):
-    def __init__(self, inference_fn):
+    def __init__(self, inference_fn, judge_fn):
         super().__init__(inference_fn)
+        self.judge_fn = judge_fn
     
     async def evaluate_web(self, gate, prompt_text):
         response = await self.inference(prompt_text)
-        # Use the semantic judge for actual verification
-        passed = await SemanticJudge.verify_with_judge(gate, prompt_text, response, self.inference)
+        passed = await SemanticJudge.verify_with_judge(gate, prompt_text, response, self.judge_fn)
         if not passed: self.system_state["integrity"] -= (1.0 / len(self.prompts))
         return {
             "gate": gate, 
@@ -170,19 +186,27 @@ class WebGauntlet(ComprehensiveAGIDefinitionGauntlet):
             "raw_response": response[:200] + "..." # For UI preview
         }
 
+class RunRequest(BaseModel):
+    gate: str
+    model: str
+    judge: str
+
 app = FastAPI()
 
 @app.get("/api/models")
 def get_models():
-    return {"models": ["Nexus (Internal)", "Llama 3 8B", "Mistral 7B", "Zephyr 7B", "Gemini", "Custom Uploaded", "Mock Engine"], 
+    return {"models": list(model_plugin.models.keys()), 
             "prompts": ComprehensiveAGIDefinitionGauntlet(None).prompts}
 
 @app.post("/api/run")
-async def run_benchmark(req: BaseModel):
-    # Mapping logic for selected model
-    # Note: In a real env, req.model would be used to set model_plugin.active_model
-    model_plugin.active_model = "gemini-1-5" if os.getenv("GOOGLE_API_KEY") else "mock"
-    gauntlet = WebGauntlet(model_plugin.run)
+async def run_benchmark(req: RunRequest):
+    async def inference_fn(prompt):
+        return await model_plugin.run(prompt, target_model=req.model)
+    
+    async def judge_fn(prompt):
+        return await model_plugin.run(prompt, target_model=req.judge)
+
+    gauntlet = WebGauntlet(inference_fn, judge_fn)
     prompt = gauntlet.prompts.get(req.gate, "Test Prompt")
     return await gauntlet.evaluate_web(req.gate, prompt)
 
@@ -192,7 +216,7 @@ def serve_ui():
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <meta charset="UTF-8"><title>AGI Gauntlet | The Omega Sequence</title>
+        <meta charset="UTF-8"><title>AGI Gauntlet | Omega Sequence</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
         <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -213,11 +237,15 @@ def serve_ui():
                 const [results, setResults] = useState([]);
                 const [running, setRunning] = useState(false);
                 const [integrity, setIntegrity] = useState(1.0);
+                
+                const [selectedModel, setSelectedModel] = useState("aeterna-vox");
+                const [selectedJudge, setSelectedJudge] = useState("gemini-3-flash");
 
                 useEffect(() => {
                     fetch('/api/models').then(r => r.json()).then(d => {
                         setModels(d.models);
                         setPrompts(d.prompts);
+                        if (d.models.includes("aeterna-vox")) setSelectedModel("aeterna-vox");
                     });
                 }, []);
 
@@ -229,7 +257,11 @@ def serve_ui():
                             const res = await fetch('/api/run', {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({ gate })
+                                body: JSON.stringify({ 
+                                    gate, 
+                                    model: selectedModel, 
+                                    judge: selectedJudge 
+                                })
                             });
                             const data = await res.json();
                             setResults(prev => [...prev, data]);
@@ -246,35 +278,64 @@ def serve_ui():
 
                 return (
                     <div className="max-w-6xl mx-auto space-y-8">
-                        <header className="border-b border-zinc-800 pb-6">
-                            <h1 className="text-4xl font-bold tracking-tighter">TRUE AGI GAUNTLET <span className="text-zinc-500 text-sm">v4.0.26</span></h1>
-                            <p className="text-zinc-400 mt-2">Designed to separate "Predictive Text" from "Synthetic Intelligence."</p>
+                        <header className="border-b border-zinc-800 pb-6 flex justify-between items-end">
+                            <div>
+                                <h1 className="text-4xl font-bold tracking-tighter">TRUE AGI GAUNTLET <span className="text-zinc-500 text-sm">v4.0.26</span></h1>
+                                <p className="text-zinc-400 mt-2 uppercase text-[10px] tracking-[0.2em] font-bold text-emerald-500">AGI Systems Directorate | Official Protocol</p>
+                            </div>
+                            <div className="text-right hidden md:block">
+                                <span className="text-zinc-600 text-[10px] uppercase font-bold">Terminal Status: Active</span>
+                            </div>
                         </header>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="matrix-border p-6 rounded-xl space-y-4">
                                 <h2 className="text-sm font-bold text-zinc-500 uppercase">Executive Summary</h2>
-                                <p className="text-xs leading-relaxed">Early gates (1-5) test basic reasoning. Middle gates (6-15) test embodied logic and Theory of Mind. The Singularity Sequence (20-25) requires multi-horizon synthesis. Failure is expected.</p>
+                                <p className="text-xs leading-relaxed text-zinc-400">Benchmarking Synthetic Intelligence via Aeterna Vox Sovereign Architecture. Validated by Gemini 1.5 Flash.</p>
                                 
                                 <div className="p-4 bg-zinc-900 rounded-lg border border-zinc-800">
-                                    <div className="text-[10px] text-zinc-500 mb-1 uppercase tracking-widest">Global Accuracy</div>
+                                    <div className="text-[10px] text-zinc-500 mb-1 uppercase tracking-widest">Cognitive Capture Rate</div>
                                     <div className="text-3xl font-black text-emerald-400">{calculateScore()}%</div>
                                 </div>
 
-                                <div className="space-y-1">
+                                <div className="space-y-3 bg-black border border-zinc-800 p-3 rounded-lg">
+                                    <div className="flex flex-col">
+                                        <label className="text-[10px] text-zinc-500 mb-1 uppercase tracking-widest font-bold">Target Model</label>
+                                        <select 
+                                            disabled={running} 
+                                            className="bg-zinc-900 border border-zinc-700 p-2 text-xs rounded text-white focus:outline-none focus:border-emerald-500" 
+                                            value={selectedModel} 
+                                            onChange={e => setSelectedModel(e.target.value)}>
+                                            {models.map(m => <option key={m} value={m}>{m}</option>)}
+                                        </select>
+                                    </div>
+                                    
+                                    <div className="flex flex-col">
+                                        <label className="text-[10px] text-zinc-500 mb-1 uppercase tracking-widest font-bold">Judge Model</label>
+                                        <select 
+                                            disabled={running} 
+                                            className="bg-zinc-900 border border-zinc-700 p-2 text-xs rounded text-white focus:outline-none focus:border-blue-500" 
+                                            value={selectedJudge} 
+                                            onChange={e => setSelectedJudge(e.target.value)}>
+                                            {models.map(m => <option key={m} value={m}>{m}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1 mt-4">
                                     <div className="flex justify-between text-[10px] text-zinc-500"><span>LINEAR</span><span>EXPONENTIAL</span><span>OMEGA</span></div>
                                     <div className="difficulty-ramp w-full"></div>
                                 </div>
-                                <button onClick={runAll} disabled={running} className="w-full bg-white text-black py-3 font-bold text-sm hover:bg-emerald-400 transition-colors">
+                                <button onClick={runAll} disabled={running} className="w-full bg-white text-black py-3 font-bold text-sm hover:bg-emerald-400 transition-colors disabled:opacity-50">
                                     {running ? "SYSTEM STRESS TEST ACTIVE..." : "EXECUTE FULL BENCHMARK"}
                                 </button>
                             </div>
 
                             <div className="md:col-span-2 matrix-border p-6 rounded-xl min-h-[400px]">
                                 <div className="flex justify-between mb-4">
-                                    <h2 className="text-sm font-bold uppercase">Real-Time Semantic Evaluation</h2>
+                                    <h2 className="text-sm font-bold uppercase">Semantic Evaluation Logs</h2>
                                     <span className={results.length > 0 && results[results.length-1].integrity < 0.4 ? "text-red-500 animate-pulse" : "text-emerald-500"}>
-                                        SYSTEM STABILITY: {results.length > 0 ? (results[results.length-1].integrity * 100).toFixed(0) : 100}%
+                                        STABILITY: {results.length > 0 ? (results[results.length-1].integrity * 100).toFixed(0) : 100}%
                                     </span>
                                 </div>
                                 <div className="space-y-2 text-[12px]">
@@ -287,10 +348,13 @@ def serve_ui():
                                             <div className="text-[10px] text-zinc-600 italic truncate">{r.raw_response}</div>
                                         </div>
                                     ))}
-                                    {running && <div className="text-emerald-500 animate-pulse pt-2">>>> JUDGING COGNITIVE OUTPUT...</div>}
+                                    {running && <div className="text-emerald-500 animate-pulse pt-2">>>> CALIBRATING NEURAL WEIGHTS...</div>}
                                 </div>
                             </div>
                         </div>
+                        <footer className="pt-12 text-center">
+                            <p className="text-zinc-800 text-[10px] font-bold uppercase tracking-widest">Internal Use Only | Property of AGI Systems Directorate</p>
+                        </footer>
                     </div>
                 );
             }
