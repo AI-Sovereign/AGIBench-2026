@@ -96,8 +96,14 @@ class ModelConnector:
                     timeout=30.0
                 )
                 data = resp.json()
-                return data['candidates'][0]['content']['parts'][0]['text']
-            except Exception as e: return f"Google Error: {str(e)}"
+                
+                # SURGICAL FIX: Safely check for the key and dump raw error if it fails
+                if 'candidates' in data:
+                    return data['candidates'][0]['content']['parts'][0]['text']
+                else:
+                    return f"Google API Error Dump (Debug this): {str(data)}"
+                    
+            except Exception as e: return f"Google Exception: {str(e)}"
 
     async def _custom_endpoint_inference(self, prompt):
         custom_url = os.getenv("CUSTOM_MODEL_URL", "http://localhost:8000/v1/completions")
@@ -216,18 +222,35 @@ def serve_ui():
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <meta charset="UTF-8"><title>AGI Gauntlet | Omega Sequence</title>
+        <meta charset="UTF-8"><title>AGI Systems Directorate | True AGI Gauntlet</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
         <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
         <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
         <style>
-            body { background: #000; color: #fff; font-family: 'JetBrains Mono', monospace; }
-            .matrix-border { border: 1px solid #1f1f1f; background: rgba(5,5,5,0.8); }
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
+            body { background: #050505; color: #ededed; font-family: 'Inter', sans-serif; }
+            .mono-text { font-family: 'JetBrains Mono', monospace; }
+            .matrix-border { 
+                border: 1px solid rgba(255, 255, 255, 0.1); 
+                background: rgba(15, 15, 15, 0.6); 
+                backdrop-filter: blur(10px);
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+                transition: all 0.3s ease;
+            }
+            .matrix-border:hover { border-color: rgba(255, 255, 255, 0.2); }
             .difficulty-ramp { background: linear-gradient(90deg, #10b981 0%, #f59e0b 50%, #ef4444 100%); height: 4px; border-radius: 2px; }
+            .gate-row { transition: all 0.2s ease-in-out; border-left: 2px solid transparent; }
+            .gate-row:hover { background: rgba(255, 255, 255, 0.03); border-left: 2px solid #10b981; cursor: pointer; padding-left: 8px; transform: translateX(2px); }
+            
+            /* Custom Scrollbar */
+            ::-webkit-scrollbar { width: 6px; }
+            ::-webkit-scrollbar-track { background: #000; }
+            ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+            ::-webkit-scrollbar-thumb:hover { background: #555; }
         </style>
     </head>
-    <body class="p-4 md:p-12">
+    <body class="p-4 md:p-12 antialiased selection:bg-emerald-500 selection:text-black">
         <div id="root"></div>
         <script type="text/babel">
             const { useState, useEffect } = React;
@@ -277,33 +300,38 @@ def serve_ui():
                 };
 
                 return (
-                    <div className="max-w-6xl mx-auto space-y-8">
-                        <header className="border-b border-zinc-800 pb-6 flex justify-between items-end">
+                    <div className="max-w-7xl mx-auto space-y-10">
+                        <header className="border-b border-zinc-800 pb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                             <div>
-                                <h1 className="text-4xl font-bold tracking-tighter">TRUE AGI GAUNTLET <span className="text-zinc-500 text-sm">v4.0.26</span></h1>
-                                <p className="text-zinc-400 mt-2 uppercase text-[10px] tracking-[0.2em] font-bold text-emerald-500">AGI Systems Directorate | Official Protocol</p>
+                                <h1 className="text-4xl md:text-5xl font-extrabold tracking-tighter text-white">AGI Systems Directorate</h1>
+                                <p className="text-zinc-400 mt-2 text-sm md:text-base font-medium">True AGI Sequence Gauntlet <span className="text-emerald-500 mono-text text-xs ml-2 px-2 py-1 bg-emerald-500/10 rounded-full">v4.0.26</span></p>
                             </div>
-                            <div className="text-right hidden md:block">
-                                <span className="text-zinc-600 text-[10px] uppercase font-bold">Terminal Status: Active</span>
+                            <div className="text-left md:text-right mono-text text-xs text-zinc-500 uppercase tracking-widest bg-zinc-900/50 p-3 rounded border border-zinc-800">
+                                <span className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    Terminal Status: Active
+                                </span>
                             </div>
                         </header>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="matrix-border p-6 rounded-xl space-y-4">
-                                <h2 className="text-sm font-bold text-zinc-500 uppercase">Executive Summary</h2>
-                                <p className="text-xs leading-relaxed text-zinc-400">Benchmarking Synthetic Intelligence via Aeterna Vox Sovereign Architecture. Validated by Gemini 1.5 Flash.</p>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <div className="matrix-border p-8 rounded-2xl space-y-6 flex flex-col h-full">
+                                <div>
+                                    <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-2">Executive Summary</h2>
+                                    <p className="text-sm leading-relaxed text-zinc-500">Benchmarking Synthetic Intelligence via Aeterna Vox Sovereign Architecture. Validated through recursive semantic judging.</p>
+                                </div>
                                 
-                                <div className="p-4 bg-zinc-900 rounded-lg border border-zinc-800">
-                                    <div className="text-[10px] text-zinc-500 mb-1 uppercase tracking-widest">Cognitive Capture Rate</div>
-                                    <div className="text-3xl font-black text-emerald-400">{calculateScore()}%</div>
+                                <div className="p-6 bg-black/40 rounded-xl border border-zinc-800/50 shadow-inner">
+                                    <div className="text-[10px] text-zinc-500 mb-2 uppercase tracking-widest font-bold">Cognitive Capture Rate</div>
+                                    <div className="text-4xl font-black text-white mono-text">{calculateScore()}<span className="text-emerald-500 text-2xl">%</span></div>
                                 </div>
 
-                                <div className="space-y-3 bg-black border border-zinc-800 p-3 rounded-lg">
+                                <div className="space-y-4 bg-zinc-900/30 border border-zinc-800/80 p-5 rounded-xl">
                                     <div className="flex flex-col">
-                                        <label className="text-[10px] text-zinc-500 mb-1 uppercase tracking-widest font-bold">Target Model</label>
+                                        <label className="text-[10px] text-zinc-500 mb-2 uppercase tracking-widest font-bold">Target Inference Model</label>
                                         <select 
                                             disabled={running} 
-                                            className="bg-zinc-900 border border-zinc-700 p-2 text-xs rounded text-white focus:outline-none focus:border-emerald-500" 
+                                            className="bg-black border border-zinc-700 p-3 text-sm rounded-lg text-white focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer appearance-none mono-text" 
                                             value={selectedModel} 
                                             onChange={e => setSelectedModel(e.target.value)}>
                                             {models.map(m => <option key={m} value={m}>{m}</option>)}
@@ -311,10 +339,10 @@ def serve_ui():
                                     </div>
                                     
                                     <div className="flex flex-col">
-                                        <label className="text-[10px] text-zinc-500 mb-1 uppercase tracking-widest font-bold">Judge Model</label>
+                                        <label className="text-[10px] text-zinc-500 mb-2 uppercase tracking-widest font-bold">Semantic Judge Model</label>
                                         <select 
                                             disabled={running} 
-                                            className="bg-zinc-900 border border-zinc-700 p-2 text-xs rounded text-white focus:outline-none focus:border-blue-500" 
+                                            className="bg-black border border-zinc-700 p-3 text-sm rounded-lg text-white focus:outline-none focus:border-blue-500 transition-colors cursor-pointer appearance-none mono-text" 
                                             value={selectedJudge} 
                                             onChange={e => setSelectedJudge(e.target.value)}>
                                             {models.map(m => <option key={m} value={m}>{m}</option>)}
@@ -322,38 +350,67 @@ def serve_ui():
                                     </div>
                                 </div>
 
-                                <div className="space-y-1 mt-4">
-                                    <div className="flex justify-between text-[10px] text-zinc-500"><span>LINEAR</span><span>EXPONENTIAL</span><span>OMEGA</span></div>
-                                    <div className="difficulty-ramp w-full"></div>
+                                {/* Difficulty Ramp Explanation */}
+                                <div className="mt-2 p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl text-xs text-zinc-400 space-y-2">
+                                    <p className="font-bold text-zinc-300 uppercase tracking-wide mb-3">Benchmark Trajectory</p>
+                                    <p><span className="text-emerald-400 font-bold mr-2">EASY:</span> Starts with standard logic puzzles handleable by basic LLMs.</p>
+                                    <p><span className="text-amber-400 font-bold mr-2">HARD:</span> Escalates to dynamic resource poverty and multi-order paradoxes.</p>
+                                    <p><span className="text-red-400 font-bold mr-2">OMEGA:</span> The sequence will eventually become impossibly difficult, designed to induce recursive logic collapse in non-AGI systems.</p>
                                 </div>
-                                <button onClick={runAll} disabled={running} className="w-full bg-white text-black py-3 font-bold text-sm hover:bg-emerald-400 transition-colors disabled:opacity-50">
-                                    {running ? "SYSTEM STRESS TEST ACTIVE..." : "EXECUTE FULL BENCHMARK"}
+
+                                <div className="space-y-2 mt-auto pt-4">
+                                    <div className="flex justify-between text-[10px] text-zinc-500 mono-text font-bold"><span>LINEAR</span><span>EXPONENTIAL</span><span>SINGULARITY</span></div>
+                                    <div className="difficulty-ramp w-full shadow-[0_0_10px_rgba(16,185,129,0.3)]"></div>
+                                </div>
+
+                                <button onClick={runAll} disabled={running} className="w-full bg-white text-black py-4 rounded-xl font-extrabold text-sm hover:bg-emerald-400 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:hover:bg-white uppercase tracking-wider mt-4">
+                                    {running ? "System Stress Test Active..." : "Execute Full Benchmark"}
                                 </button>
                             </div>
 
-                            <div className="md:col-span-2 matrix-border p-6 rounded-xl min-h-[400px]">
-                                <div className="flex justify-between mb-4">
-                                    <h2 className="text-sm font-bold uppercase">Semantic Evaluation Logs</h2>
-                                    <span className={results.length > 0 && results[results.length-1].integrity < 0.4 ? "text-red-500 animate-pulse" : "text-emerald-500"}>
-                                        STABILITY: {results.length > 0 ? (results[results.length-1].integrity * 100).toFixed(0) : 100}%
-                                    </span>
+                            <div className="lg:col-span-2 matrix-border p-8 rounded-2xl min-h-[600px] flex flex-col">
+                                <div className="flex justify-between items-center mb-6 pb-4 border-b border-zinc-800/50">
+                                    <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-widest">Semantic Evaluation Logs</h2>
+                                    <div className={`px-4 py-1.5 rounded-full mono-text text-xs font-bold ${results.length > 0 && results[results.length-1].integrity < 0.4 ? "bg-red-500/10 text-red-500 border border-red-500/30 animate-pulse" : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"}`}>
+                                        SYSTEM STABILITY: {results.length > 0 ? (results[results.length-1].integrity * 100).toFixed(0) : 100}%
+                                    </div>
                                 </div>
-                                <div className="space-y-2 text-[12px]">
+                                
+                                <div className="space-y-1 overflow-y-auto pr-2 flex-grow">
+                                    {results.length === 0 && !running && (
+                                        <div className="h-full flex items-center justify-center text-zinc-600 mono-text text-sm italic">
+                                            Awaiting initialization sequence...
+                                        </div>
+                                    )}
                                     {results.map((r, i) => (
-                                        <div key={i} className="flex flex-col border-b border-zinc-900 pb-2">
-                                            <div className="flex justify-between">
-                                                <span className="text-zinc-400">[{i+1}] {r.gate}</span>
-                                                <span className={r.status === 'PASSED' ? 'text-emerald-400 font-bold' : 'text-red-600 font-bold'}>{r.status}</span>
+                                        <div key={i} className="gate-row flex flex-col p-3 rounded-lg border-b border-zinc-800/30">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-zinc-300 font-semibold text-sm">
+                                                    <span className="text-zinc-600 mr-2 mono-text">[{String(i+1).padStart(2, '0')}]</span> 
+                                                    {r.gate}
+                                                </span>
+                                                <span className={`text-xs font-bold px-2 py-0.5 rounded mono-text tracking-wider ${r.status === 'PASSED' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-500'}`}>
+                                                    {r.status}
+                                                </span>
                                             </div>
-                                            <div className="text-[10px] text-zinc-600 italic truncate">{r.raw_response}</div>
+                                            <div className="text-[11px] text-zinc-500 italic truncate mono-text bg-black/30 p-2 rounded border border-zinc-800/50 mt-1">
+                                                {r.raw_response}
+                                            </div>
                                         </div>
                                     ))}
-                                    {running && <div className="text-emerald-500 animate-pulse pt-2">>>> CALIBRATING NEURAL WEIGHTS...</div>}
+                                    {running && (
+                                        <div className="text-emerald-500 animate-pulse pt-4 pb-2 mono-text text-xs font-bold pl-2 flex items-center gap-2">
+                                            <svg className="animate-spin h-4 w-4 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                            CALIBRATING NEURAL WEIGHTS & INGESTING STIMULUS...
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
-                        <footer className="pt-12 text-center">
-                            <p className="text-zinc-800 text-[10px] font-bold uppercase tracking-widest">Internal Use Only | Property of AGI Systems Directorate</p>
+                        <footer className="pt-12 pb-6 text-center">
+                            <p className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest mono-text">
+                                Confidential & Proprietary | &copy; 2026 AGI Systems Directorate
+                            </p>
                         </footer>
                     </div>
                 );
