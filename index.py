@@ -27,7 +27,7 @@ class ModelConnector:
             "mistral-7b": self._hf_mistral_inference,
             "zephyr-7b": self._hf_zephyr_inference,
             "llama-3-8b": self._hf_llama3_inference,
-            "gemini-3-flash": self._google_inference,
+            "gemini": self._google_inference,
             "aeterna-vox": self._aeterna_inference, # Surgical Addition
             "custom-upload": self._custom_endpoint_inference
         }
@@ -89,9 +89,9 @@ class ModelConnector:
             try:
                 api_key = os.getenv("GOOGLE_API_KEY", "").strip()
                 headers = {"Content-Type": "application/json"}
-                # SURGICAL FIX: Updated endpoint to the correct "Flash-8B" model identifier
+                # SURGICAL FIX: Updated endpoint to gemini-3.1-flash-lite
                 resp = await client.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-8b:generateContent?key={api_key}",
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={api_key}",
                     headers=headers,
                     json={"contents": [{"parts": [{"text": prompt}]}]},
                     timeout=30.0
@@ -264,7 +264,7 @@ def serve_ui():
                 const [interactiveScore, setInteractiveScore] = useState(0); // SURGICAL ADDITION
                 
                 const [selectedModel, setSelectedModel] = useState("aeterna-vox");
-                const [selectedJudge, setSelectedJudge] = useState("gemini-3-flash");
+                const [selectedJudge, setSelectedJudge] = useState("gemini");
 
                 useEffect(() => {
                     fetch('/api/models').then(r => r.json()).then(d => {
