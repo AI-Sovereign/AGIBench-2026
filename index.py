@@ -57,7 +57,7 @@ class ModelConnector:
                 clean_text = clean_text[len(prompt.strip()):].strip()
                 
             # Clean up residual artifacts like "Answer:" or leading hyphens
-            clean_text = re.sub(r'^(?i)(answer|response)?\s*[:\-]\s*', '', clean_text).strip()
+            clean_text = re.sub(r'(?i)^(answer|response)?\s*[:\-]\s*', '', clean_text).strip()
             
             return clean_text
         except Exception as e:
