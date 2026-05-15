@@ -39,10 +39,10 @@ class ModelConnector:
             hf_token = os.getenv("HF_TOKEN", "").strip()
             # SURGICAL FIX: Changed hf_token=hf_token to token=hf_token to match Gradio Client API
             client = Client("ai-sovereign-x/AETERNA-VOX-OMNI-MINI-HYBRID", token=hf_token)
-            # Standard Gradio .predict call - adjusting for common UI input patterns
+            # SURGICAL FIX: Changed api_name to /predict and passed prompt directly. /chat didn't exist.
             result = client.predict(
-                message=prompt,
-                api_name="/chat" # Standard endpoint for most Gradio chat interfaces
+                prompt,
+                api_name="/predict" 
             )
             # Remove agentic noise/logs if present
             clean_text = re.sub(r'\[.*?\]', '', str(result)).strip()
