@@ -37,17 +37,24 @@ class ModelConnector:
         # Bridge to AGI Systems Directorate Sovereign Architecture
         try:
             hf_token = os.getenv("HF_TOKEN", "").strip()
-            # SURGICAL FIX: Changed hf_token=hf_token to token=hf_token to match Gradio Client API
-            client = Client("ai-sovereign-x/AETERNA-VOX-OMNI-MINI-HYBRID", token=hf_token)
-            # SURGICAL FIX: Changed api_name to /predict and passed prompt directly. /chat didn't exist.
-            # SURGICAL FIX 2.0: Passing None for image_path because Gradio is needy.
-            result = client.predict(
-                prompt,
-                None,
-                api_name="/predict" 
-            )
-            # Remove agentic noise/logs if present
-            clean_text = re.sub(r'\[.*?\]', '', str(result)).strip()
+            clean_text = ""
+            
+            # --- DUAL-ROUTING FALLBACK PROTOCOL ---
+            # Attempt 1: Hugging Face Space
+            try:
+                client = Client("ai-sovereign-x/AETERNA-VOX-OMNI-MINI-HYBRID", token=hf_token)
+                result = client.predict(prompt, None, api_name="/predict")
+                clean_text = re.sub(r'\[.*?\]', '', str(result)).strip()
+                
+                # The infamous string check
+                if "brain freeze 1 second" in clean_text.lower():
+                    raise ValueError("HF Space hit the brain freeze limit. Falling back.")
+                    
+            except Exception as hf_e:
+                # Attempt 2: Render Fallback
+                fallback_client = Client("https://sovereign-neuro-symbolic-engine.onrender.com/")
+                result = fallback_client.predict(prompt, None, api_name="/predict")
+                clean_text = re.sub(r'\[.*?\]', '', str(result)).strip()
             
             # --- SURGICAL FIX 3.0: Prompt Decapitation ---
             # Stop it from regurgitating the question
