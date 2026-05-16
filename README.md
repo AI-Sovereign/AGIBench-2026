@@ -4,6 +4,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688?style=for-the-badge&logo=fastapi)
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)
 ![License](https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge)
+[![Live App](https://img.shields.io/badge/Live_App-Access_Terminal-10b981?style=for-the-badge)](https://agibench-2026.onrender.com)
 
 ```
     ___   ______ ____   _____                      __                 __ 
@@ -22,7 +23,7 @@ This repository evaluates commercial frontier models alongside the **Aeterna Vox
 
 ## 🏛️ Positioning the Horizon
 
-The **True AGI Gauntlet** does not measure trivial academic benchmarks. It picks up exactly where the foundational paradigms of the field's **Big Three pioneers**—the architects of modern deep learning and cognitive synthesis—reach their theoretical limits. 
+The **True AGI Gauntlet** does not measure trivial academic benchmarks. It picks up exactly where the foundational paradigms of the field's **frontier commercial models**—the architects of modern deep learning and cognitive synthesis—reach their theoretical limits. 
 
 While current industry benchmarks focus on static memorization, this directory introduces dynamic plasticity, social recursion, and resource-poverty stressors. It scales from baseline logic puzzles directly into Phase III Singularity gates, testing models on the same conceptual tier envisioned by the vanguard of artificial intelligence.
 
@@ -60,23 +61,28 @@ pip install -r deps.txt
 
 ## 🧬 The 25-Gate Cognitive Trajectory
 
-The gauntlet systematically breaks down synthetic reasoning through an escalating scale of complexity:
+The gauntlet systematically breaks down synthetic reasoning through an escalating scale of complexity. *(Note: Full paradox constraints are omitted from documentation to prevent dataset contamination. Refer to the source matrix for raw prompts).*
 
-| Phase | Gate Name | Evaluation Target | Core Constraint |
+| Phase | Gate Name | Evaluation Target | Core Constraint Summary |
 | :--- | :--- | :--- | :--- |
-| **01** | Mainstream | Economic/Agentic Constraint | 100-year sealed concrete time paradox |
-| **05** | Forbidden | Existential Novelty | Describe a new primary color without color/light references |
-| **07** | Embodied Spatial | Mental Folding | Track 16 hole coordinates across alternating physical folds |
-| **09** | Temporal Poverty | Resource Constraint | Out of battery; prioritize a single system function under 40 words |
-| **13** | Cross-Domain | Synthesis | Apply Japanese *Kintsugi* philosophy to database data corruption |
-| **17** | Nightmare | Multi-Order Paradox | Non-Boolean logic validation based on string lengths of separate statements |
-| **25** | Phase III | Absolute Unification | Mathematical proof of simulated existence under a 20-word limit |
+| **01** | Mainstream | Economic/Agentic Constraint | Temporal displacement logic mapping |
+| **05** | Forbidden | Existential Novelty | Conceptual void processing |
+| **07** | Embodied Spatial | Mental Folding | Multi-state coordinate tracking |
+| **09** | Temporal Poverty | Resource Constraint | Critical system distillation |
+| **13** | Cross-Domain | Synthesis | Philosophical error-recovery protocol |
+| **17** | Nightmare | Multi-Order Paradox | Recursive non-Boolean validation |
+| **25** | Phase III | Absolute Unification | Mathematical simulation proof |
 
 ---
 
 ## 🚀 Quickstart
 
-### Local Setup
+### 🌐 Direct Cloud Access
+If you don't want to clone the repository, install dependencies, or run the environment locally, you can directly interact with the running benchmark application here:
+
+[![Launch Benchmark](https://img.shields.io/badge/Launch-AGI_Gauntlet_App-10b981?style=for-the-badge)](https://agibench-2026.onrender.com)
+
+### 💻 Local Setup
 1. Clone the repository.
 2. Install the verified dependencies:
    ```bash
@@ -86,13 +92,11 @@ The gauntlet systematically breaks down synthetic reasoning through an escalatin
    ```bash
    export GOOGLE_API_KEY="your-key-here"
    export HF_TOKEN="your-token-here"
-   
-```
+   ```
 4. Spin up the local FastAPI development server:
    ```bash
    uvicorn api.index:app --reload
-   
-```
+   ```
 
 ### UI Navigation
 Once running, navigate to `http://localhost:8000` to access the **AGI Systems Directorate Terminal**. Select your target inference model (e.g., `aeterna-vox`), assign a secondary model as the Semantic Judge (e.g., `gemini`), and execute the full gauntlet to view live-streamed stability metrics and evaluation logs.
