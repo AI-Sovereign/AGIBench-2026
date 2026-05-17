@@ -46,8 +46,8 @@ class ModelConnector:
                 result = client.predict(prompt, None, api_name="/predict")
                 clean_text = re.sub(r'\[.*?\]', '', str(result)).strip()
                 
-                # The infamous string check
-                if "brain freeze 1 second" in clean_text.lower():
+                # The infamous string check - fixed to handle weird spacing and exact text
+                if re.search(r'brain\s*freeze\.?\s*one\s*sec\.?', clean_text, re.IGNORECASE):
                     raise ValueError("HF Space hit the brain freeze limit. Falling back.")
                     
             except Exception as hf_e:
