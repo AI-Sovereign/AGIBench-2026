@@ -294,6 +294,10 @@ def serve_ui():
                 const [selectedModel, setSelectedModel] = useState("aeterna-vox");
                 const [selectedJudge, setSelectedJudge] = useState("gemini");
 
+                // --- SURGICAL ADDITION: ENGINE COLD-BOOT INITIALIZATION STATES ---
+                const [initStatus, setInitStatus] = useState("idle"); 
+                const [initTimer, setInitTimer] = useState(120);
+
                 useEffect(() => {
                     fetch('/api/models').then(r => r.json()).then(d => {
                         setModels(d.models);
@@ -301,6 +305,35 @@ def serve_ui():
                         if (d.models.includes("aeterna-vox")) setSelectedModel("aeterna-vox");
                     });
                 }, []);
+
+                // --- SURGICAL ADDITION: INITIALIZATION TICKER & REDIRECT PIPELINE ---
+                useEffect(() => {
+                    let interval;
+                    if (initStatus === "waking" && initTimer > 0) {
+                        interval = setInterval(() => {
+                            setInitTimer(prev => {
+                                if (prev <= 1) {
+                                    clearInterval(interval);
+                                    setInitStatus("ready");
+                                    window.open("https://sovereign-neuro-symbolic-engine.onrender.com/", "_blank");
+                                    return 0;
+                                }
+                                return prev - 1;
+                            });
+                        }, 1000);
+                    }
+                    return () => clearInterval(interval);
+                }, [initStatus, initTimer]);
+
+                const triggerInitialization = () => {
+                    setInitStatus("waking");
+                    setInitTimer(120);
+                    fetch("https://sovereign-neuro-symbolic-engine.onrender.com/", { mode: "no-cors" }).catch(() => {});
+                    const wakeUpPinger = setInterval(() => {
+                        fetch("https://sovereign-neuro-symbolic-engine.onrender.com/", { mode: "no-cors" }).catch(() => {});
+                    }, 8000);
+                    setTimeout(() => clearInterval(wakeUpPinger), 120000);
+                };
 
                 const runAll = async () => {
                     setRunning(true); setResults([]); setIntegrity(1.0); setInteractiveScore(0);
@@ -373,6 +406,31 @@ def serve_ui():
                                 <div>
                                     <h2 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-2">Executive Summary</h2>
                                     <p className="text-sm leading-relaxed text-zinc-500">Benchmarking Synthetic Intelligence via Aeterna Vox Sovereign Architecture. Validated through recursive semantic judging.</p>
+                                </div>
+
+                                {/* SURGICAL ADDITION: PROPRIETARY INITIALIZATION GATEWAY */}
+                                <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-xl space-y-3">
+                                    <div className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold flex items-center justify-between font-mono">
+                                        <span>Engine Initializer</span>
+                                        {initStatus === "waking" && <span className="text-amber-400 animate-pulse font-bold">{initTimer}s</span>}
+                                        {initStatus === "ready" && <span className="text-emerald-400 font-bold">READY</span>}
+                                    </div>
+                                    <p className="text-zinc-500 text-[11px] leading-relaxed">
+                                        If you want to evaluate this project in the benchmark or make this project an evaluator, you must first click this button for initialization. You must wait for at least 2 minutes because you will be automatically redirected into the site interface after the initialization process completes and the full device UI is visible.
+                                    </p>
+                                    <button 
+                                        onClick={triggerInitialization} 
+                                        disabled={initStatus === "waking"}
+                                        className={`w-full font-mono text-[11px] py-2.5 rounded-lg font-bold border transition-all uppercase tracking-wider ${
+                                            initStatus === "idle" ? "bg-zinc-900 text-zinc-300 border-zinc-700 hover:border-zinc-500 hover:bg-zinc-800" :
+                                            initStatus === "waking" ? "bg-amber-500/10 text-amber-400 border-amber-500/20 cursor-not-allowed" :
+                                            "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                                        }`}
+                                    >
+                                        {initStatus === "idle" && "Initialize Sovereign Engine"}
+                                        {initStatus === "waking" && "Spinning Container (Standby)..."}
+                                        {initStatus === "ready" && "Launch Core Interface"}
+                                    </button>
                                 </div>
                                 
                                 <div className="p-6 bg-black/40 rounded-xl border border-zinc-800/50 shadow-inner">
