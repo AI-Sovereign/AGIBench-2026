@@ -35,6 +35,9 @@ class ModelConnector:
 
     async def _aeterna_inference(self, prompt):
         # Bridge to AGI Systems Directorate Sovereign Architecture
+        # SURGICAL FIX: Force absolute state orientation so it knows if it is Participant or Judge
+        if "AGI BENCHMARK JUDGE" not in prompt:
+            prompt = f"[CONTEXT: You are currently the PARTICIPANT/SUBJECT of this benchmark gate. Solve the puzzle directly. Do NOT output PASSED or FAILED.]\n{prompt}"
         try:
             hf_token = os.getenv("HF_TOKEN", "").strip()
             clean_text = ""
@@ -341,6 +344,30 @@ def serve_ui():
                             </div>
                         </header>
 
+                        {/* SURGICAL ADDITION: GLOBAL COGNITIVE METRIC TERMINAL HUB */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+                            <div className="p-4 bg-zinc-950 border border-zinc-800/80 rounded-xl relative overflow-hidden group">
+                                <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+                                <div className="text-zinc-500 text-[10px] uppercase tracking-wider">SYSTEM TOPOLOGY</div>
+                                <div className="text-zinc-200 font-bold mt-1 text-sm">Sovereign Cloud-Mobile Hybrid</div>
+                            </div>
+                            <div className="p-4 bg-zinc-950 border border-zinc-800/80 rounded-xl relative overflow-hidden group">
+                                <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                                <div className="text-zinc-500 text-[10px] uppercase tracking-wider">EXPECTED RUNTIME</div>
+                                <div className="text-amber-400 font-bold mt-1 text-sm">~15 - 20 Minutes</div>
+                            </div>
+                            <div className="p-4 bg-zinc-950 border border-zinc-800/80 rounded-xl relative overflow-hidden group">
+                                <div className="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
+                                <div className="text-zinc-500 text-[10px] uppercase tracking-wider">SENSORY CHANNELS</div>
+                                <div className="text-purple-400 font-bold mt-1 text-sm">136 Disparate Modalities</div>
+                            </div>
+                            <div className="p-4 bg-zinc-950 border border-zinc-800/80 rounded-xl relative overflow-hidden group">
+                                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                                <div className="text-zinc-500 text-[10px] uppercase tracking-wider">COMPLIANCE CLASS</div>
+                                <div className="text-blue-400 font-bold mt-1 text-sm">Frontier Tier AGI Definition</div>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <div className="matrix-border p-8 rounded-2xl space-y-6 flex flex-col h-full">
                                 <div>
@@ -375,6 +402,12 @@ def serve_ui():
                                             {models.map(m => <option key={m} value={m}>{m}</option>)}
                                         </select>
                                     </div>
+                                </div>
+
+                                {/* SURGICAL ADDITION: LATENCY WARNING NOTICE */}
+                                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-400 font-mono space-y-1">
+                                    <span className="font-bold">⏱️ LATENCY TELEMETRY MATRIX:</span>
+                                    <p className="text-zinc-400 text-[11px]">Due to recursive deep-reasoning cycles and cold-boot processing thresholds, execution sweeps take up to 15-20 minutes. Do not refresh terminal.</p>
                                 </div>
 
                                 {/* Difficulty Ramp Explanation */}
