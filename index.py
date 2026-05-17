@@ -42,7 +42,8 @@ class ModelConnector:
             # --- DUAL-ROUTING FALLBACK PROTOCOL ---
             # Attempt 1: Hugging Face Space
             try:
-                client = Client("ai-sovereign-x/AETERNA-VOX-OMNI-MINI-HYBRID", token=hf_token)
+                # SURGICAL FIX: Added 120s timeout to survive cold-boot delays
+                client = Client("ai-sovereign-x/AETERNA-VOX-OMNI-MINI-HYBRID", token=hf_token, httpx_kwargs={"timeout": 120.0})
                 result = client.predict(prompt, None, api_name="/predict")
                 clean_text = re.sub(r'\[.*?\]', '', str(result)).strip()
                 
@@ -52,7 +53,8 @@ class ModelConnector:
                     
             except Exception as hf_e:
                 # Attempt 2: Render Fallback
-                fallback_client = Client("https://sovereign-neuro-symbolic-engine.onrender.com/")
+                # SURGICAL FIX: Added 120s timeout here too
+                fallback_client = Client("https://sovereign-neuro-symbolic-engine.onrender.com/", httpx_kwargs={"timeout": 120.0})
                 result = fallback_client.predict(prompt, None, api_name="/predict")
                 clean_text = re.sub(r'\[.*?\]', '', str(result)).strip()
             
