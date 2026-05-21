@@ -46,7 +46,7 @@ class ModelConnector:
             # Attempt 1: Hugging Face Space
             try:
                 # SURGICAL FIX: Added 120s timeout to survive cold-boot delays
-                client = Client("ai-sovereign-x/AETERNA-VOX-OMNI-MINI-HYBRID", token=hf_token, httpx_kwargs={"timeout": 120.0})
+                client = Client("agi-systems-directorate/aeterna-vox-omni-mini-v2.1", token=hf_token, httpx_kwargs={"timeout": 120.0})
                 result = client.predict(prompt, None, api_name="/predict")
                 clean_text = re.sub(r'\[.*?\]', '', str(result)).strip()
                 
