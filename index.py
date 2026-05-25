@@ -249,69 +249,55 @@ async def run_benchmark(req: RunRequest):
 def serve_ui():
     html_content = """
     <!DOCTYPE html>
-    <html lang="en" class="dark">
+    <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>AGI Systems Directorate | Evaluation Suite</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <title>AGI Systems Directorate | Evaluation</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
         <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
         <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;700&family=Geist:wght@300;400;500;600;700&display=swap');
-            body { 
-                background-color: #09090b; 
-                color: #f4f4f5; 
-                font-family: 'Geist', sans-serif; 
-            }
-            .font-mono-premium { font-family: 'Geist Mono', monospace; }
-            .premium-blur {
-                background: rgba(20, 20, 23, 0.75);
-                backdrop-filter: blur(20px);
-                border: 1px solid rgba(63, 63, 70, 0.4);
-            }
-            .hide-scrollbar::-webkit-scrollbar { display: none; }
-            .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap');
+            body { background: #0A0A0A; color: #EDEDED; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+            .mono-text { font-family: 'Geist Mono', monospace; }
+            .glass-panel { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; }
+            .btn-primary { background: #EDEDED; color: #0A0A0A; transition: all 0.2s ease; }
+            .btn-primary:hover:not(:disabled) { background: #FFFFFF; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,255,255,0.1); }
+            .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+            
+            /* Clean Scrollbar */
+            ::-webkit-scrollbar { width: 4px; }
+            ::-webkit-scrollbar-track { background: transparent; }
+            ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+            ::-webkit-scrollbar-thumb:hover { background: #555; }
+            
+            .boredom-node { transition: all 0.1s ease; cursor: crosshair; }
+            .boredom-node:active { transform: scale(0.9); }
         </style>
     </head>
-    <body class="antialiased selection:bg-zinc-800 selection:text-white">
-        <div id="root"></div>
+    <body class="p-4 md:p-12 selection:bg-white/20 selection:text-white min-h-screen flex flex-col">
+        <div id="root" class="flex-grow flex flex-col"></div>
         <script type="text/babel">
             const { useState, useEffect, useRef } = React;
-
             function App() {
-                const [models, setModels] = useState([]);
                 const [prompts, setPrompts] = useState({});
-                const [activeTab, setActiveTab] = useState("matrix"); // matrix | sandbox | manifesto
+                const [phase, setPhase] = useState("idle"); // idle, p1, p2, done
+                const [resultsP1, setResultsP1] = useState([]);
+                const [resultsP2, setResultsP2] = useState([]);
                 
-                // State tracking for dual automated phases
-                const [phase1Results, setPhase1Results] = useState({});
-                const [phase2Results, setPhase2Results] = useState({});
-                const [currentPipelinePhase, setCurrentPipelinePhase] = useState("idle"); // idle | phase1 | phase2 | complete
-                const [activeGateRunning, setActiveGateRunning] = useState("");
-                const [systemStability, setSystemStability] = useState(100);
-
-                // Sandbox minigame metrics to pass time
-                const [sandboxNodes, setSandboxNodes] = useState(136);
-                const [entropyPool, setEntropyPool] = useState(0.024);
-                const [logsSecured, setLogsSecured] = useState(0);
-
-                // Selectors (locked during initialization/automation run)
-                const [selectedModel, setSelectedModel] = useState("gemini");
-                const [selectedJudge, setSelectedJudge] = useState("aeterna-vox");
-
-                const [initStatus, setInitStatus] = useState("idle");
+                // Initialization States
+                const [initStatus, setInitStatus] = useState("idle"); 
                 const [initTimer, setInitTimer] = useState(120);
+                
+                // Interactive Mini-game state
+                const [boredomScore, setBoredomScore] = useState(0);
 
                 useEffect(() => {
-                    fetch('/api/models')
-                        .then(r => r.json())
-                        .then(d => {
-                            setModels(d.models);
-                            setPrompts(d.prompts);
-                            // Auto-trigger the macro sequence once architecture specifications land
-                            triggerAutomatedPipeline(d.prompts);
-                        });
+                    fetch('/api/models').then(r => r.json()).then(d => {
+                        setPrompts(d.prompts);
+                    });
                 }, []);
 
                 useEffect(() => {
@@ -322,7 +308,6 @@ def serve_ui():
                                 if (prev <= 1) {
                                     clearInterval(interval);
                                     setInitStatus("ready");
-                                    window.open("https://sovereign-neuro-symbolic-engine.onrender.com/", "_blank");
                                     return 0;
                                 }
                                 return prev - 1;
@@ -336,27 +321,29 @@ def serve_ui():
                     setInitStatus("waking");
                     setInitTimer(120);
                     fetch("https://sovereign-neuro-symbolic-engine.onrender.com/", { mode: "no-cors" }).catch(() => {});
-                    const waker = setInterval(() => {
+                    const wakeUpPinger = setInterval(() => {
                         fetch("https://sovereign-neuro-symbolic-engine.onrender.com/", { mode: "no-cors" }).catch(() => {});
                     }, 8000);
-                    setTimeout(() => clearInterval(waker), 120000);
+                    setTimeout(() => clearInterval(wakeUpPinger), 120000);
                 };
 
-                const triggerAutomatedPipeline = async (loadedPrompts) => {
-                    const targetPrompts = loadedPrompts || prompts;
-                    const gates = Object.keys(targetPrompts);
-                    if (gates.length === 0) return;
-
-                    // --- PHASE I AUTOMATION INITIALIZATION ---
-                    setCurrentPipelinePhase("phase1");
-                    setSelectedModel("gemini");
-                    setSelectedJudge("aeterna-vox");
+                const runAutomatedSequence = async () => {
+                    setPhase("p1");
+                    setResultsP1([]); setResultsP2([]);
                     
-                    let temporaryStability = 100;
-                    const penaltyPerFailure = 100 / (gates.length * 2);
+                    // SURGICAL UX FIX: Keep screen alive for mobile users backgrounding the app
+                    let wakeLock = null;
+                    try {
+                        if ('wakeLock' in navigator) {
+                            wakeLock = await navigator.wakeLock.request('screen');
+                        }
+                    } catch (err) { console.log("WakeLock denied, relying on standard background execution."); }
 
-                    for (const gate of gates) {
-                        setActiveGateRunning(gate);
+                    const gateKeys = Object.keys(prompts);
+                    
+                    // PHASE 1: Gemini vs Aeterna (Judge)
+                    let p1Data = [];
+                    for (const gate of gateKeys) {
                         try {
                             const res = await fetch('/api/run', {
                                 method: 'POST',
@@ -364,23 +351,15 @@ def serve_ui():
                                 body: JSON.stringify({ gate, model: "gemini", judge: "aeterna-vox" })
                             });
                             const data = await res.json();
-                            setPhase1Results(prev => ({ ...prev, [gate]: data }));
-                            if (data.status !== "PASSED") {
-                                temporaryStability = Math.max(0, temporaryStability - penaltyPerFailure);
-                                setSystemStability(Math.round(temporaryStability));
-                            }
-                        } catch (e) {
-                            console.error(e);
-                        }
+                            p1Data.push(data);
+                            setResultsP1([...p1Data]);
+                        } catch (e) { console.error(e); }
                     }
 
-                    // --- PHASE II AUTOMATION TRANSITION ---
-                    setCurrentPipelinePhase("phase2");
-                    setSelectedModel("aeterna-vox");
-                    setSelectedJudge("gemini");
-
-                    for (const gate of gates) {
-                        setActiveGateRunning(gate);
+                    // PHASE 2: Aeterna vs Gemini (Judge)
+                    setPhase("p2");
+                    let p2Data = [];
+                    for (const gate of gateKeys) {
                         try {
                             const res = await fetch('/api/run', {
                                 method: 'POST',
@@ -388,322 +367,153 @@ def serve_ui():
                                 body: JSON.stringify({ gate, model: "aeterna-vox", judge: "gemini" })
                             });
                             const data = await res.json();
-                            setPhase2Results(prev => ({ ...prev, [gate]: data }));
-                            if (data.status !== "PASSED") {
-                                temporaryStability = Math.max(0, temporaryStability - penaltyPerFailure);
-                                setSystemStability(Math.round(temporaryStability));
-                            }
-                        } catch (e) {
-                            console.error(e);
-                        }
+                            p2Data.push(data);
+                            setResultsP2([...p2Data]);
+                        } catch (e) { console.error(e); }
                     }
 
-                    setCurrentPipelinePhase("complete");
-                    setActiveGateRunning("");
+                    if (wakeLock !== null) wakeLock.release();
+                    setPhase("done");
                 };
 
-                const getPhaseMetrics = (resultsSet) => {
-                    const finished = Object.keys(resultsSet).length;
-                    const passed = Object.values(resultsSet).filter(r => r.status === "PASSED").length;
-                    const percentage = finished > 0 ? ((passed / Object.keys(prompts).length) * 100).toFixed(1) : "0.0";
-                    return { finished, passed, percentage };
+                const calcScore = (resultsArray) => {
+                    if (resultsArray.length === 0) return "0.00";
+                    const passed = resultsArray.filter(r => r.status === 'PASSED').length;
+                    return ((passed / Object.keys(prompts).length) * 100).toFixed(2);
                 };
 
-                const p1Metrics = getPhaseMetrics(phase1Results);
-                const p2Metrics = getPhaseMetrics(phase2Results);
+                const totalGates = Object.keys(prompts).length;
 
                 return (
-                    <div className="max-w-7xl mx-auto px-4 py-8 md:py-14 space-y-8 selection:bg-zinc-800">
+                    <div className="max-w-5xl mx-auto w-full flex-grow flex flex-col space-y-8">
                         
-                        {/* PREMIUM RESEARCH HEADER */}
-                        <header className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-zinc-800 pb-6 gap-4">
-                            <div>
-                                <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">AGI Systems Directorate</h1>
-                                <p className="text-zinc-500 text-sm mt-0.5 font-normal tracking-wide">Sovereign Architecture Sequence Sequence Validation Suite</p>
-                            </div>
-                            <div className="flex items-center gap-3 font-mono-premium text-xs">
-                                <span className="text-zinc-500 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-md flex items-center gap-2">
-                                    <span className={`w-1.5 h-1.5 rounded-full ${currentPipelinePhase === 'complete' ? 'bg-zinc-500' : 'bg-zinc-100 animate-pulse'}`}></span>
-                                    {currentPipelinePhase === 'idle' && "STAGED"}
-                                    {currentPipelinePhase === 'phase1' && "EXECUTING PHASE I"}
-                                    {currentPipelinePhase === 'phase2' && "EXECUTING PHASE II"}
-                                    {currentPipelinePhase === 'complete' && "SEQUENCE CONCLUDED"}
-                                </span>
-                                <span className="text-zinc-400 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-md">
-                                    STABILITY: {systemStability}%
-                                </span>
-                            </div>
+                        {/* CLEAN HEADER */}
+                        <header className="text-center pt-8 pb-4">
+                            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-[#EDEDED]">AGI Systems Directorate</h1>
+                            <p className="text-[#888888] mt-2 text-sm">True AGI Gauntlet <span className="mono-text text-xs ml-2 px-2 py-0.5 bg-white/10 rounded text-white/80">v4.0.26</span></p>
                         </header>
 
-                        {/* GLOBAL PIPELINE PROGRESS BAR */}
-                        <div className="w-full bg-zinc-900 h-[2px] rounded-full overflow-hidden relative border border-zinc-800/20">
-                            <div 
-                                className="bg-zinc-200 h-full transition-all duration-500 ease-out"
-                                style={{ 
-                                    width: `${
-                                        currentPipelinePhase === "complete" ? 100 :
-                                        currentPipelinePhase === "phase2" ? 50 + (Object.keys(phase2Results).length / Object.keys(prompts).length * 50) :
-                                        currentPipelinePhase === "phase1" ? (Object.keys(phase1Results).length / Object.keys(prompts).length * 50) : 0
-                                    }%` 
-                                }}
-                            ></div>
-                        </div>
-
-                        {/* MAIN GRID HUB */}
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                            
-                            {/* CONTROL SIDEBAR Panel */}
-                            <div className="lg:col-span-4 space-y-6">
-                                <div className="premium-blur p-6 rounded-xl space-y-6">
-                                    <div>
-                                        <h3 className="text-zinc-400 text-xs font-semibold uppercase tracking-wider font-mono-premium mb-1">Engine Control Hub</h3>
-                                        <p className="text-zinc-500 text-xs">Dual-pass inference sequencing is fully automated below.</p>
+                        {/* INITIALIZATION BLOCK (Hidden if already started) */}
+                        {phase === "idle" && (
+                            <div className="glass-panel p-8 md:p-12 text-center max-w-2xl mx-auto w-full space-y-6">
+                                <div>
+                                    <h2 className="text-lg font-medium mb-2">Engine Initialization Required</h2>
+                                    <p className="text-[#888888] text-sm leading-relaxed">
+                                        Prior to running the dual-phase AGI benchmark, the Sovereign Neuro-Symbolic Engine container must cold-boot. This takes approximately two minutes.
+                                    </p>
+                                </div>
+                                
+                                {initStatus === "waking" ? (
+                                    <div className="p-4 rounded-lg bg-white/5 border border-white/10 mono-text text-sm">
+                                        Container Spinning Up... Please wait <span className="text-white font-bold">{initTimer}s</span>
                                     </div>
-
-                                    {/* COLD ENGINE INITIALIZER PLATFORM */}
-                                    <div className="p-4 bg-zinc-950/60 border border-zinc-800/80 rounded-lg space-y-2.5">
-                                        <div className="flex justify-between items-center text-[11px] font-mono-premium font-medium">
-                                            <span className="text-zinc-400">COGNITIVE CONTAINER</span>
-                                            {initStatus === "waking" && <span className="text-zinc-100 animate-pulse">WAKING ({initTimer}s)</span>}
-                                            {initStatus === "ready" && <span className="text-zinc-400">ONLINE</span>}
-                                            {initStatus === "idle" && <span className="text-zinc-600">STDBY</span>}
+                                ) : initStatus === "ready" ? (
+                                    <div className="space-y-4">
+                                        <div className="text-emerald-400 mono-text text-sm mb-4">SYSTEM ONLINE & READY</div>
+                                        <div className="text-xs text-[#888888] mb-4 mono-text bg-white/5 p-3 rounded text-left">
+                                            > PHASE 1: Participant [Gemini] | Judge [Aeterna]<br/>
+                                            > PHASE 2: Participant [Aeterna] | Judge [Gemini]<br/>
+                                            > BACKGROUND EXECUTION: Enabled via WakeLock. You may switch apps.
                                         </div>
-                                        <p className="text-zinc-500 text-[11px] leading-relaxed font-normal">
-                                            If container fallbacks trigger latency thresholds, wake up the persistent neuro-symbolic stack manually. Redirects upon full boot.
-                                        </p>
-                                        <button 
-                                            onClick={triggerInitialization}
-                                            disabled={initStatus === "waking"}
-                                            className={`w-full font-mono-premium text-[11px] py-2 rounded border transition-all duration-200 ${
-                                                initStatus === "idle" ? "bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:border-zinc-600" :
-                                                initStatus === "waking" ? "bg-zinc-950 border-zinc-800/60 text-zinc-500 cursor-not-allowed" :
-                                                "bg-zinc-100 border-zinc-200 text-zinc-950 font-medium hover:bg-zinc-200"
-                                            }`}
-                                        >
-                                            {initStatus === "idle" && "Initialize Sovereign Cluster"}
-                                            {initStatus === "waking" && "Spinning Stack Pods..."}
-                                            {initStatus === "ready" && "Launch Cluster Terminal"}
+                                        <button onClick={runAutomatedSequence} className="w-full btn-primary py-3 rounded-lg font-medium text-sm">
+                                            Initiate Automated Sequence
                                         </button>
                                     </div>
-
-                                    {/* AUTOMATED HARD-LOCK MODEL SELECTORS */}
-                                    <div className="space-y-3 font-mono-premium text-xs">
-                                        <div>
-                                            <label className="text-[10px] text-zinc-500 block mb-1 uppercase tracking-wider">Active Subject</label>
-                                            <div className="w-full bg-zinc-950 border border-zinc-800 p-2.5 rounded text-zinc-400 font-medium">
-                                                {selectedModel} <span className="text-[10px] text-zinc-600 float-right">(LOCKED)</span>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] text-zinc-500 block mb-1 uppercase tracking-wider">Active Evaluator</label>
-                                            <div className="w-full bg-zinc-950 border border-zinc-800 p-2.5 rounded text-zinc-400 font-medium">
-                                                {selectedJudge} <span className="text-[10px] text-zinc-600 float-right">(LOCKED)</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* PHASE SUMMARIES */}
-                                    <div className="border-t border-zinc-800/60 pt-4 space-y-2 text-xs font-mono-premium">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-zinc-500">PHASE I METRICS:</span>
-                                            <span className="text-zinc-300 font-medium">{p1Metrics.percentage}% ({p1Metrics.passed}/{p1Metrics.finished})</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-zinc-500">PHASE II METRICS:</span>
-                                            <span className="text-zinc-300 font-medium">{p2Metrics.percentage}% ({p2Metrics.passed}/{p2Metrics.finished})</span>
-                                        </div>
-                                    </div>
-
-                                    <button 
-                                        onClick={() => triggerAutomatedPipeline(null)} 
-                                        disabled={currentPipelinePhase === "phase1" || currentPipelinePhase === "phase2"}
-                                        className="w-full bg-zinc-100 text-zinc-950 py-2.5 rounded-lg text-xs font-medium tracking-wide hover:bg-zinc-200 transition-all disabled:opacity-30 disabled:hover:bg-zinc-100 uppercase font-mono-premium"
-                                    >
-                                        {currentPipelinePhase === 'phase1' || currentPipelinePhase === 'phase2' ? "Sequence Processing..." : "Force Restart Suite"}
+                                ) : (
+                                    <button onClick={triggerInitialization} className="w-full bg-white/10 hover:bg-white/20 text-white border border-white/10 py-3 rounded-lg font-medium text-sm transition-all">
+                                        Boot Sovereign Engine
                                     </button>
-                                </div>
-
-                                {/* BACKGROUND ARCHITECTURE METRICS */}
-                                <div className="p-5 bg-zinc-900/40 border border-zinc-800/50 rounded-xl space-y-2 text-[11px] font-mono-premium text-zinc-500">
-                                    <div className="flex justify-between"><span className="uppercase text-zinc-600">Topology:</span> <span className="text-zinc-400">136-Modality Neuro-Symbolic</span></div>
-                                    <div className="flex justify-between"><span className="uppercase text-zinc-600">Hardware Constraints:</span> <span className="text-zinc-400">Bottlenecked Mobile Core Opt</span></div>
-                                    <div className="flex justify-between"><span className="uppercase text-zinc-600">Sequence Ramps:</span> <span className="text-zinc-400">25 Linear-to-Singularity Gates</span></div>
-                                </div>
+                                )}
                             </div>
+                        )}
 
-                            {/* MAIN COGNITIVE EVALUATION ENVIRONMENT */}
-                            <div className="lg:col-span-8 space-y-6">
+                        {/* ACTIVE DASHBOARD */}
+                        {phase !== "idle" && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-grow">
                                 
-                                {/* HIGHLY MODERN SUB-APP NAVIGATION TABS */}
-                                <div className="flex border-b border-zinc-800 gap-6 text-sm">
-                                    <button 
-                                        onClick={() => setActiveTab("matrix")}
-                                        className={`pb-3 font-medium transition-colors relative ${activeTab === "matrix" ? "text-zinc-100 font-semibold" : "text-zinc-500 hover:text-zinc-300"}`}
-                                    >
-                                        Evaluation Matrix
-                                        {activeTab === "matrix" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-zinc-200"></div>}
-                                    </button>
-                                    <button 
-                                        onClick={() => setActiveTab("sandbox")}
-                                        className={`pb-3 font-medium transition-colors relative ${activeTab === "sandbox" ? "text-zinc-100 font-semibold" : "text-zinc-500 hover:text-zinc-300"}`}
-                                    >
-                                        Neural Latent Sandbox
-                                        {activeTab === "sandbox" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-zinc-200"></div>}
-                                    </button>
-                                    <button 
-                                        onClick={() => setActiveTab("manifesto")}
-                                        className={`pb-3 font-medium transition-colors relative ${activeTab === "manifesto" ? "text-zinc-100 font-semibold" : "text-zinc-500 hover:text-zinc-300"}`}
-                                    >
-                                        Architecture Manifesto
-                                        {activeTab === "manifesto" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-zinc-200"></div>}
-                                    </button>
+                                {/* SCORE & STATUS PANEL */}
+                                <div className="space-y-6 flex flex-col">
+                                    <div className="glass-panel p-6 flex flex-col items-center justify-center space-y-4 flex-grow relative overflow-hidden">
+                                        <div className="text-xs text-[#888888] font-medium tracking-wide uppercase">Phase 1 Score (Gemini)</div>
+                                        <div className="text-5xl font-semibold mono-text">{calcScore(resultsP1)}<span className="text-2xl text-[#888888]">%</span></div>
+                                        <div className="w-full bg-white/10 h-1 rounded-full mt-2 overflow-hidden">
+                                            <div className="bg-white h-full transition-all duration-300" style={{width: `${(resultsP1.length/totalGates)*100}%`}}></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="glass-panel p-6 flex flex-col items-center justify-center space-y-4 flex-grow">
+                                        <div className="text-xs text-[#888888] font-medium tracking-wide uppercase">Phase 2 Score (Aeterna)</div>
+                                        <div className="text-5xl font-semibold mono-text">{calcScore(resultsP2)}<span className="text-2xl text-[#888888]">%</span></div>
+                                        <div className="w-full bg-white/10 h-1 rounded-full mt-2 overflow-hidden">
+                                            <div className="bg-white h-full transition-all duration-300" style={{width: `${(resultsP2.length/totalGates)*100}%`}}></div>
+                                        </div>
+                                    </div>
+
+                                    {/* BOREDOM MITIGATION PROTOCOL */}
+                                    {(phase === "p1" || phase === "p2") && (
+                                        <div className="glass-panel p-4 text-center">
+                                            <div className="text-[10px] text-[#888888] uppercase tracking-wider mb-3">Boredom Mitigation / Node Calibration</div>
+                                            <div className="flex flex-wrap gap-2 justify-center mb-2">
+                                                {[...Array(10)].map((_, i) => (
+                                                    <div key={i} onClick={() => setBoredomScore(s => s + 1)} className="boredom-node w-6 h-6 rounded-md bg-white/10 hover:bg-white/30 border border-white/20"></div>
+                                                ))}
+                                            </div>
+                                            <div className="mono-text text-xs text-[#888888]">Nodes Calibrated: {boredomScore}</div>
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* TAB PANEL 1: EVALUATION MATRIX LOGS */}
-                                {activeTab === "matrix" && (
-                                    <div className="space-y-4">
-                                        <div className="flex justify-between items-center text-xs font-mono-premium text-zinc-500 px-1">
-                                            <span>GATE SELECTION TRACK</span>
-                                            <span>STATUS TELEX</span>
-                                        </div>
-
-                                        <div className="space-y-2 overflow-y-auto max-h-[600px] pr-2 hide-scrollbar">
-                                            {Object.keys(prompts).map((gate, idx) => {
-                                                const p1Res = phase1Results[gate];
-                                                const p2Res = phase2Results[gate];
-                                                const isCurrent = activeGateRunning === gate;
-
-                                                return (
-                                                    <div 
-                                                        key={gate} 
-                                                        className={`p-4 rounded-lg bg-zinc-900/40 border transition-all duration-200 ${
-                                                            isCurrent ? 'border-zinc-400 bg-zinc-900/80 shadow-md' : 'border-zinc-800/80'
-                                                        }`}
-                                                    >
-                                                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-                                                            <div className="space-y-0.5">
-                                                                <span className="text-[11px] font-mono-premium text-zinc-600 mr-2">[{String(idx+1).padStart(2, '0')}]</span>
-                                                                <span className="text-sm font-medium text-zinc-200 tracking-tight">{gate}</span>
-                                                                <p className="text-zinc-500 text-xs font-normal line-clamp-1">{prompts[gate]}</p>
-                                                            </div>
-                                                            
-                                                            {/* Side-by-Side Unified Phase Status Tickers */}
-                                                            <div className="flex items-center gap-2 font-mono-premium text-[10px] mt-1 md:mt-0">
-                                                                <div className={`px-2 py-1 rounded border ${
-                                                                    p1Res ? (p1Res.status === 'PASSED' ? 'bg-zinc-900 border-zinc-700 text-zinc-300' : 'bg-zinc-950 border-zinc-900 text-zinc-600') :
-                                                                    (currentPipelinePhase === 'phase1' && isCurrent ? 'bg-zinc-900 border-zinc-600 text-zinc-100 animate-pulse' : 'bg-zinc-950/20 border-zinc-900/40 text-zinc-700')
-                                                                }`}>
-                                                                    P-I: {p1Res ? p1Res.status : (currentPipelinePhase === 'phase1' && isCurrent ? 'COMPUTING' : 'STAGED')}
-                                                                </div>
-                                                                <div className={`px-2 py-1 rounded border ${
-                                                                    p2Res ? (p2Res.status === 'PASSED' ? 'bg-zinc-900 border-zinc-700 text-zinc-300' : 'bg-zinc-950 border-zinc-900 text-zinc-600') :
-                                                                    (currentPipelinePhase === 'phase2' && isCurrent ? 'bg-zinc-900 border-zinc-600 text-zinc-100 animate-pulse' : 'bg-zinc-950/20 border-zinc-900/40 text-zinc-700')
-                                                                }`}>
-                                                                    P-II: {p2Res ? p2Res.status : (currentPipelinePhase === 'phase2' && isCurrent ? 'COMPUTING' : 'STAGED')}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Inline response preview for raw cognitive analysis */}
-                                                        {(p1Res || p2Res) && (
-                                                            <div className="mt-3 pt-2.5 border-t border-zinc-800/40 grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] font-mono-premium text-zinc-500">
-                                                                {p1Res && <div className="bg-zinc-950/40 p-2 rounded border border-zinc-900 truncate">P1 Response: {p1Res.raw_response}</div>}
-                                                                {p2Res && <div className="bg-zinc-950/40 p-2 rounded border border-zinc-900 truncate">P2 Response: {p2Res.raw_response}</div>}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
+                                {/* TERMINAL LOGS PANEL */}
+                                <div className="glass-panel p-6 flex flex-col h-[600px]">
+                                    <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
+                                        <h3 className="text-sm font-medium">Evaluation Telemetry</h3>
+                                        <span className="text-xs text-[#888888] mono-text">
+                                            {phase === "p1" ? "Running Phase 1..." : phase === "p2" ? "Running Phase 2..." : "Sequence Complete"}
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="flex-grow overflow-y-auto space-y-2 pr-2">
+                                        {/* RENDER P1 */}
+                                        {resultsP1.map((r, i) => (
+                                            <div key={`p1-${i}`} className="p-3 rounded-lg bg-white/5 border border-white/5 text-sm">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="text-white/80 font-medium text-xs">P1: {r.gate}</span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded mono-text ${r.status === 'PASSED' ? 'bg-white text-black' : 'bg-white/10 text-white/50'}`}>
+                                                        {r.status}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        
+                                        {/* RENDER P2 */}
+                                        {resultsP2.map((r, i) => (
+                                            <div key={`p2-${i}`} className="p-3 rounded-lg bg-white/5 border border-white/5 text-sm">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="text-white/80 font-medium text-xs">P2: {r.gate}</span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded mono-text ${r.status === 'PASSED' ? 'bg-white text-black' : 'bg-white/10 text-white/50'}`}>
+                                                        {r.status}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        
+                                        {/* AUTOSCROLL ANCHOR */}
+                                        <div style={{ float:"left", clear: "both" }}
+                                             ref={(el) => { el && el.scrollIntoView({ behavior: "smooth" }) }}>
                                         </div>
                                     </div>
-                                )}
-
-                                {/* TAB PANEL 2: INTERACTIVE LATENT SANDBOX (THE ANTI-BOREDOM MODULE) */}
-                                {activeTab === "sandbox" && (
-                                    <div className="premium-blur p-6 rounded-xl space-y-6">
-                                        <div className="space-y-1">
-                                            <h3 className="text-sm font-semibold text-zinc-200 font-mono-premium">Interactive Latent Space Simulator</h3>
-                                            <p className="text-xs text-zinc-500">The evaluation thread runs uninterrupted in the background. Use this terminal interface to stabilize system constraints manually.</p>
-                                        </div>
-
-                                        <div className="grid grid-cols-3 gap-4 text-center font-mono-premium">
-                                            <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-lg">
-                                                <div className="text-[10px] text-zinc-600 uppercase">Sensory Channels</div>
-                                                <div className="text-lg font-bold text-zinc-300 mt-0.5">{sandboxNodes}</div>
-                                            </div>
-                                            <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-lg">
-                                                <div className="text-[10px] text-zinc-600 uppercase">Entropy Variance</div>
-                                                <div className="text-lg font-bold text-zinc-300 mt-0.5">{entropyPool.toFixed(4)}</div>
-                                            </div>
-                                            <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-lg">
-                                                <div className="text-[10px] text-zinc-600 uppercase">Overrides Managed</div>
-                                                <div className="text-lg font-bold text-zinc-300 mt-0.5">{logsSecured}</div>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-3 pt-2">
-                                            <label className="text-[11px] text-zinc-400 block font-mono-premium uppercase tracking-wide">Interactive Diagnostic Controls</label>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono-premium text-xs">
-                                                <button 
-                                                    onClick={() => {
-                                                        setSandboxNodes(n => n + 1);
-                                                        setEntropyPool(e => Math.max(0, e - 0.001));
-                                                        setLogsSecured(l => l + 1);
-                                                    }}
-                                                    className="p-3 bg-zinc-900 border border-zinc-800 rounded-lg text-left text-zinc-300 hover:border-zinc-600 transition-colors"
-                                                >
-                                                    ⚡ Stimulate Modality Array #42
-                                                </button>
-                                                <button 
-                                                    onClick={() => {
-                                                        setEntropyPool(e => e + 0.004);
-                                                        setLogsSecured(l => l + 1);
-                                                    }}
-                                                    className="p-3 bg-zinc-900 border border-zinc-800 rounded-lg text-left text-zinc-300 hover:border-zinc-600 transition-colors"
-                                                >
-                                                    🌀 Shift Neuro-Symbolic Weights
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-zinc-950 p-4 rounded-lg border border-zinc-800 font-mono-premium text-[11px] text-zinc-500 h-32 overflow-y-auto space-y-1">
-                                            <div>&gt; System Sequence Active. Thread safe pipeline executing.</div>
-                                            <div>&gt; Modality registers synchronized across 136 entry points.</div>
-                                            {logsSecured > 0 && <div>&gt; Applied {logsSecured} manual constraint modifications. Local stability optimal.</div>}
-                                            {currentPipelinePhase !== 'complete' && <div className="text-zinc-400 animate-pulse">&gt; Active sweep cooking... do not reload or minimize the current environment window.</div>}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* TAB PANEL 3: ARCHITECTURE MANIFESTO */}
-                                {activeTab === "manifesto" && (
-                                    <div className="premium-blur p-6 rounded-xl space-y-4 text-sm leading-relaxed text-zinc-400">
-                                        <h3 className="text-zinc-200 font-medium tracking-tight font-mono-premium">The AETERNA-VOX Neuro-Symbolic Paradigm</h3>
-                                        <p>
-                                            Traditional validation architectures rely on aggressive scaling factors. The architecture manifested here shifts foundational resource constraints entirely—optimizing deep continuous logic matrices to execute directly across distributed consumer environments without relying on massive centralized compute layers.
-                                        </p>
-                                        <p>
-                                            By cross-evaluating raw agentic responses through alternating semantic judge layers (Gemini vs Aeterna Vox), the system constructs a zero-bias metric pipeline to definitively calculate the synthesis frontier of synthetic frameworks.
-                                        </p>
-                                        <div className="pt-4 border-t border-zinc-800 flex items-center justify-between text-xs font-mono-premium text-zinc-600">
-                                            <span>FRAMEWORK VERSION: v4.0.26</span>
-                                            <span>CLASSIFICATION: OPEN FRONTIER SPEC</span>
-                                        </div>
-                                    </div>
-                                )}
-
+                                </div>
                             </div>
-                        </div>
+                        )}
 
-                        {/* PREMIUM RESEARCH FOOTER */}
-                        <footer className="pt-8 border-t border-zinc-900 flex justify-between items-center text-[11px] font-mono-premium text-zinc-600 tracking-wide">
-                            <span>Sovereign Verification Matrix</span>
-                            <span>&copy; 2026 AGI Systems Directorate</span>
+                        <footer className="pt-8 pb-4 text-center mt-auto border-t border-white/10">
+                            <p className="text-[#555555] text-xs font-medium mono-text">
+                                &copy; 2026 AGI Systems Directorate. All rights reserved.
+                            </p>
                         </footer>
                     </div>
                 );
             }
-
             ReactDOM.createRoot(document.getElementById('root')).render(<App />);
         </script>
     </body>
