@@ -254,6 +254,18 @@ def serve_ui():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <title>AGI Systems Directorate | Evaluation</title>
+        
+        <!-- SURGICAL FIX: FRONTEND DEBUG PLUMBING -->
+        <script>
+            window.onerror = function(message, source, lineno, colno, error) {
+                alert("JS Error: " + message + "\\nLine: " + lineno + "\\nSource: " + source);
+                return false;
+            };
+            window.onunhandledrejection = function(event) {
+                alert("Unhandled Promise: " + (event.reason ? event.reason.stack || event.reason : event));
+            };
+        </script>
+
         <script src="https://cdn.tailwindcss.com"></script>
         <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
         <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
