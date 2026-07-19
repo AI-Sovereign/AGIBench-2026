@@ -255,43 +255,62 @@ def serve_ui():
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <title>AGI Systems Directorate | Evaluation</title>
         
-        <!-- GLOBAL UNMASKED ERROR RECOVERY GATEKEEPER -->
+        <!-- THE ALL-SEEING DIAGNOSTIC PARASITE (CATCHES PROMISES & CONSOLE ERRORS) -->
         <script>
-            window.addEventListener('error', function(e) {
-                var msg = "🚨 CRITICAL UI UNMASKED ERROR:\\n" + "Message: " + e.message + "\\nLine: " + e.lineno + "\\nSource: " + e.filename;
-                console.error(msg);
-                if (document.body) {
+            (function() {
+                function showErrorBox(msg) {
                     var errBox = document.getElementById('ui-error-gatekeeper');
                     if (!errBox) {
                         errBox = document.createElement('div');
                         errBox.id = 'ui-error-gatekeeper';
-                        errBox.style.position = 'fixed';
-                        errBox.style.top = '10px';
-                        errBox.style.left = '10px';
-                        errBox.style.right = '10px';
-                        errBox.style.background = '#1A0505';
-                        errBox.style.border = '1px solid #FF4444';
-                        errBox.style.color = '#FF8888';
-                        errBox.style.padding = '12px';
-                        errBox.style.borderRadius = '8px';
-                        errBox.style.zIndex = '99999';
-                        errBox.style.fontFamily = 'monospace';
-                        errBox.style.fontSize = '11px';
-                        errBox.style.whiteSpace = 'pre-wrap';
-                        document.body.appendChild(errBox);
+                        errBox.style = 'position:fixed; top:10px; left:10px; right:10px; background:#1A0505; border:1px solid #FF4444; color:#FF8888; padding:12px; border-radius:8px; z-index:99999; font-family:monospace; font-size:11px; white-space:pre-wrap; max-height:80vh; overflow-y:auto; word-break:break-all;';
+                        
+                        var appendToDOM = function() {
+                            if (document.body) {
+                                document.body.appendChild(errBox);
+                            } else {
+                                document.documentElement.appendChild(errBox);
+                            }
+                        };
+                        
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', appendToDOM);
+                        } else {
+                            appendToDOM();
+                        }
                     }
-                    errBox.innerText = msg;
-                } else {
-                    alert(msg);
+                    errBox.innerText += "\\n\\n--- NEW DIAGNOSTIC ---\\n" + msg;
                 }
-            });
+
+                // Catch standard errors
+                window.addEventListener('error', function(e) {
+                    showErrorBox("🚨 WINDOW ERROR: " + e.message + "\\nLine: " + e.lineno + " in " + e.filename);
+                });
+
+                // Catch background fetch/async failures that skip window.onerror
+                window.addEventListener('unhandledrejection', function(e) {
+                    showErrorBox("🚨 PROMISE REJECTION (Fetch/Async failed): " + (e.reason && e.reason.stack ? e.reason.stack : e.reason));
+                });
+
+                // Hijack console.error to catch Babel compilation silent failures
+                var originalConsoleError = console.error;
+                console.error = function() {
+                    originalConsoleError.apply(console, arguments);
+                    var argsArray = Array.prototype.slice.call(arguments);
+                    var msg = argsArray.map(function(a) { 
+                        return (typeof a === 'object') ? JSON.stringify(a) : String(a); 
+                    }).join(' ');
+                    showErrorBox("🚨 CONSOLE.ERROR: " + msg);
+                };
+            })();
         </script>
 
-        <!-- SECURED STABLE CDN DEPLOYMENTS WITH EXPLICIT CROSS-ORIGIN DE-MASKING -->
+        <!-- SECURED CDN DEPLOYMENTS WITH CROSS-ORIGIN AND DEVELOPMENT BUILDS FOR READABLE ERRORS -->
         <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
-        <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin="anonymous"></script>
-        <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+        <script src="https://unpkg.com/react@18.2.0/umd/react.development.js" crossorigin="anonymous"></script>
+        <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js" crossorigin="anonymous"></script>
         <script src="https://unpkg.com/@babel/standalone@7.23.12/babel.min.js" crossorigin="anonymous"></script>
+        
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap');
             body { background: #0A0A0A; color: #EDEDED; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
@@ -445,9 +464,9 @@ def serve_ui():
                                     <div className="space-y-4">
                                         <div className="text-emerald-400 mono-text text-sm mb-4">SYSTEM ONLINE & READY</div>
                                         <div className="text-xs text-[#888888] mb-4 mono-text bg-white/5 p-3 rounded text-left">
-                                            &gt; PHASE 1: Participant [Gemini] | Judge [Aeterna]<br/>
-                                            &gt; PHASE 2: Participant [Aeterna] | Judge [Gemini]<br/>
-                                            &gt; BACKGROUND EXECUTION: Enabled via WakeLock. You may switch apps.
+                                            > PHASE 1: Participant [Gemini] | Judge [Aeterna]<br/>
+                                            > PHASE 2: Participant [Aeterna] | Judge [Gemini]<br/>
+                                            > BACKGROUND EXECUTION: Enabled via WakeLock. You may switch apps.
                                         </div>
                                         <button onClick={runAutomatedSequence} className="w-full btn-primary py-3 rounded-lg font-medium text-sm">
                                             Initiate Automated Sequence
