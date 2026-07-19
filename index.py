@@ -254,22 +254,10 @@ def serve_ui():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <title>AGI Systems Directorate | Evaluation</title>
-        
-        <!-- SURGICAL FIX: FRONTEND DEBUG PLUMBING -->
-        <script>
-            window.onerror = function(message, source, lineno, colno, error) {
-                alert("JS Error: " + message + "\\nLine: " + lineno + "\\nSource: " + source);
-                return false;
-            };
-            window.onunhandledrejection = function(event) {
-                alert("Unhandled Promise: " + (event.reason ? event.reason.stack || event.reason : event));
-            };
-        </script>
-
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-        <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-        <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+        <script src="https://cdn.tailwindcss.com" crossorigin></script>
+        <script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
+        <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+        <script src="https://unpkg.com/@babel/standalone@7.23.12/babel.min.js" crossorigin></script>
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap');
             body { background: #0A0A0A; color: #EDEDED; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
@@ -291,7 +279,7 @@ def serve_ui():
     </head>
     <body class="p-4 md:p-12 selection:bg-white/20 selection:text-white min-h-screen flex flex-col">
         <div id="root" class="flex-grow flex flex-col"></div>
-        <script type="text/babel">
+        <script type="text/babel" data-presets="react">
             const { useState, useEffect, useRef } = React;
             function App() {
                 const [prompts, setPrompts] = useState({});
