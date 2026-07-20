@@ -251,6 +251,29 @@ def serve_ui():
     <!DOCTYPE html>
     <html lang="en">
     <head>
+        <!-- ======================================================================= -->
+        <!-- 🚨 THE BRUTE FORCE 90s POPUP ERROR CATCHER 🚨                           -->
+        <!-- ======================================================================= -->
+        <script>
+            window.addEventListener('error', function(e) {
+                var msg = e.message || "Unknown Error";
+                var file = e.filename || "Unknown File";
+                
+                // Catching silent CDN script loading failures (CORS / Network drop)
+                if (e.target && e.target.nodeName === 'SCRIPT') {
+                    msg = "SCRIPT LOAD FAILED (Likely CORS or Network block): " + e.target.src;
+                    file = e.target.src;
+                }
+                
+                alert("🚨 CRITICAL ERROR CAUGHT 🚨\\n\\nMessage: " + msg + "\\nFile: " + file + "\\nLine: " + (e.lineno || "N/A"));
+            }, true); // The 'true' is mandatory here to catch network fetch errors on scripts
+
+            window.addEventListener('unhandledrejection', function(e) {
+                alert("🚨 PROMISE REJECTION 🚨\\n\\n" + (e.reason && e.reason.stack ? e.reason.stack : e.reason));
+            });
+        </script>
+        <!-- ======================================================================= -->
+
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <title>AGI Systems Directorate | Evaluation</title>
@@ -282,48 +305,6 @@ def serve_ui():
     </head>
     <body class="p-4 md:p-12 selection:bg-white/20 selection:text-white min-h-screen flex flex-col">
         
-        <!-- ======================================================================= -->
-        <!-- 🚨 THE NUCLEAR ERROR CATCHER (HARDCODED DOM ELEMENT) 🚨                 -->
-        <!-- ======================================================================= -->
-        <div id="FATAL_ERROR_DUMP" style="display:none; position:fixed; inset:0; background:#300000; color:#ff8888; z-index:9999999; padding:20px; font-family:monospace; font-size:14px; overflow:auto; border: 10px solid red;">
-            <h2 style="color:white; font-size: 24px; margin-bottom: 20px;">🚨 JAVASCRIPT SYSTEM FAILURE 🚨</h2>
-            <p style="color:#ffaaaa; margin-bottom: 20px;">If you are seeing this, the React UI completely crashed. Take a screenshot of the text below.</p>
-            <pre id="FATAL_ERROR_TEXT" style="white-space: pre-wrap; word-wrap: break-word;"></pre>
-        </div>
-        <script>
-            (function() {
-                var dump = document.getElementById('FATAL_ERROR_DUMP');
-                var text = document.getElementById('FATAL_ERROR_TEXT');
-                
-                function throwItInYourFace(msg) {
-                    dump.style.display = 'block';
-                    text.innerText += "\\n--- NEW ERROR CAUGHT ---\\n" + msg + "\\n";
-                }
-
-                // Standard runtime errors
-                window.addEventListener('error', function(e) {
-                    throwItInYourFace("WINDOW ERROR: " + e.message + "\\nFile: " + e.filename + "\\nLine: " + e.lineno + ":" + e.colno + "\\nStack:\\n" + (e.error ? e.error.stack : 'N/A'));
-                });
-
-                // Failed API fetches / unhandled promises
-                window.addEventListener('unhandledrejection', function(e) {
-                    throwItInYourFace("UNHANDLED PROMISE: " + (e.reason && e.reason.stack ? e.reason.stack : String(e.reason)));
-                });
-
-                // Babel/React silent console deaths
-                var origErr = console.error;
-                console.error = function() {
-                    origErr.apply(console, arguments);
-                    var argsArray = Array.prototype.slice.call(arguments);
-                    var msg = argsArray.map(function(a) { 
-                        return (typeof a === 'object') ? JSON.stringify(a, null, 2) : String(a); 
-                    }).join(' ');
-                    throwItInYourFace("CONSOLE ERROR (React/Babel): " + msg);
-                };
-            })();
-        </script>
-        <!-- ======================================================================= -->
-
         <div id="root" class="flex-grow flex flex-col"></div>
         
         <script type="text/babel">
