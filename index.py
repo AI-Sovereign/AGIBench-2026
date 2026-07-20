@@ -245,6 +245,47 @@ async def run_benchmark(req: RunRequest):
     prompt = gauntlet.prompts.get(req.gate, "Test Prompt")
     return await gauntlet.evaluate_web(req.gate, prompt)
 
+# =======================================================================
+# 🌐 FRONTEND PLUMBING FIX - THE CDN JAILBREAK CACHE
+# =======================================================================
+_cdn_cache = {}
+
+async def _fetch_and_cache(url: str):
+    if url in _cdn_cache: return _cdn_cache[url]
+    async with httpx.AsyncClient(follow_redirects=True) as client:
+        try:
+            resp = await client.get(url, timeout=15.0)
+            _cdn_cache[url] = resp.text
+            return resp.text
+        except Exception: return ""
+
+@app.get("/proxy/tailwind.js")
+async def proxy_tailwind():
+    from fastapi import Response
+    content = await _fetch_and_cache("https://cdn.tailwindcss.com")
+    return Response(content=content, media_type="application/javascript")
+
+@app.get("/proxy/react.js")
+async def proxy_react():
+    from fastapi import Response
+    content = await _fetch_and_cache("https://unpkg.com/react@18/umd/react.production.min.js")
+    return Response(content=content, media_type="application/javascript")
+
+@app.get("/proxy/react-dom.js")
+async def proxy_react_dom():
+    from fastapi import Response
+    content = await _fetch_and_cache("https://unpkg.com/react-dom@18/umd/react-dom.production.min.js")
+    return Response(content=content, media_type="application/javascript")
+
+@app.get("/proxy/babel.js")
+async def proxy_babel():
+    from fastapi import Response
+    content = await _fetch_and_cache("https://unpkg.com/@babel/standalone/babel.min.js")
+    return Response(content=content, media_type="application/javascript")
+
+# =======================================================================
+# 🎨 2026 ENTERPRISE UI OVERHAUL 
+# =======================================================================
 @app.get("/")
 def serve_ui():
     html_content = """
@@ -253,115 +294,171 @@ def serve_ui():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <title>AGI Systems Directorate | Evaluation</title>
+        <title>AGI Systems Directorate | Workspace</title>
         
-        <!-- RUTHLESS POPUP ERROR INTERCEPTOR -->
+        <!-- THE LOCAL PROXY JAILBREAK -->
+        <script src="/proxy/tailwind.js"></script>
+        <script src="/proxy/react.js"></script>
+        <script src="/proxy/react-dom.js"></script>
+        <script src="/proxy/babel.js"></script>
+        
         <script>
-            (function() {
-                // Formatting function to safely extract the deepest, darkest raw data available
-                function buildRawDump(obj) {
-                    if (!obj) return "No raw object provided.";
-                    try {
-                        var props = Object.getOwnPropertyNames(obj);
-                        var dump = {};
-                        for (var i = 0; i < props.length; i++) {
-                            dump[props[i]] = obj[props[i]];
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        colors: {
+                            brand: '#E5E5E5',
+                            surface: '#0A0A0A',
+                            surface2: '#141414',
+                            border: '#262626'
+                        },
+                        fontFamily: {
+                            sans: ['Inter', 'sans-serif'],
+                            mono: ['Geist Mono', 'SFMono-Regular', 'monospace'],
                         }
-                        return JSON.stringify(dump, null, 2).substring(0, 800) + "... (truncated)";
-                    } catch (e) {
-                        return String(obj);
                     }
                 }
-
-                function nukeWithPopup(source, msg, rawData) {
-                    alert(
-                        "🚨 RUTHLESS ERROR CAUGHT 🚨\\n\\n" +
-                        "SOURCE: " + source + "\\n\\n" +
-                        "MESSAGE: " + msg + "\\n\\n" +
-                        "RAW DUMP:\\n" + buildRawDump(rawData)
-                    );
-                }
-
-                // 1. Catch script tags and network loads completely failing
-                window.addEventListener('error', function(e) {
-                    if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
-                        nukeWithPopup(
-                            "NETWORK / CDN LOAD FAILURE", 
-                            "The browser completely failed to fetch the file. Check your mobile data, DNS, or Ad-blocker. The browser provides NO further information for security reasons.", 
-                            { tag: e.target.tagName, url: e.target.src || e.target.href }
-                        );
-                    }
-                }, true);
-
-                // 2. Catch standard runtime JS errors
-                window.onerror = function(msg, url, line, col, error) {
-                    nukeWithPopup("RUNTIME JS ERROR", msg + " at " + line + ":" + col, error);
-                    return false;
-                };
-
-                // 3. Catch async promise rejections
-                window.addEventListener('unhandledrejection', function(e) {
-                    nukeWithPopup("UNHANDLED PROMISE", e.reason ? e.reason.toString() : "Unknown promise failure", e.reason);
-                });
-                
-                // 4. Hijack console.error just in case React tries to die quietly
-                var origErr = console.error;
-                console.error = function() {
-                    origErr.apply(console, arguments);
-                    var args = Array.prototype.slice.call(arguments);
-                    var combinedMsg = args.map(function(a) { return String(a); }).join(" ");
-                    nukeWithPopup("CONSOLE.ERROR TRIGGERED", combinedMsg, args);
-                };
-            })();
+            }
         </script>
-
-        <!-- SECURED CDN DEPLOYMENTS -->
-        <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
-        <script src="https://unpkg.com/react@18.2.0/umd/react.development.js" crossorigin="anonymous"></script>
-        <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js" crossorigin="anonymous"></script>
-        <script src="https://unpkg.com/@babel/standalone@7.23.12/babel.min.js" crossorigin="anonymous"></script>
-        
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap');
-            body { background: #0A0A0A; color: #EDEDED; font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+            
+            body { 
+                background-color: #030303;
+                background-image: 
+                    radial-gradient(circle at 15% 50%, rgba(255,255,255,0.03) 0%, transparent 50%),
+                    radial-gradient(circle at 85% 30%, rgba(255,255,255,0.02) 0%, transparent 50%);
+                color: #A3A3A3; 
+                font-family: 'Inter', sans-serif; 
+                -webkit-font-smoothing: antialiased;
+                margin: 0;
+                height: 100vh;
+                overflow: hidden;
+            }
+            
             .mono-text { font-family: 'Geist Mono', monospace; }
-            .glass-panel { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; }
-            .btn-primary { background: #EDEDED; color: #0A0A0A; transition: all 0.2s ease; }
-            .btn-primary:hover:not(:disabled) { background: #FFFFFF; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,255,255,0.1); }
+            
+            /* Modern 2026 App Layout */
+            .app-container {
+                display: grid;
+                grid-template-rows: 64px 1fr;
+                height: 100vh;
+            }
+            .main-content {
+                display: grid;
+                grid-template-columns: 320px 1fr;
+                gap: 1px;
+                background: #262626; /* borders between panels */
+            }
+            @media (max-width: 768px) {
+                .main-content {
+                    grid-template-columns: 1fr;
+                    grid-template-rows: auto 1fr;
+                    overflow-y: auto;
+                }
+                body { overflow: auto; }
+                .app-container { height: auto; min-height: 100vh; }
+            }
+
+            .panel { background: #0A0A0A; overflow-y: auto; position: relative; }
+            
+            .btn-primary {
+                background: #E5E5E5; color: #000;
+                transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+                box-shadow: 0 1px 2px rgba(255,255,255,0.1);
+            }
+            .btn-primary:hover:not(:disabled) {
+                background: #FFFFFF;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(255,255,255,0.15);
+            }
             .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+            .btn-outline {
+                background: transparent; color: #E5E5E5;
+                border: 1px solid #262626;
+                transition: all 0.2s ease;
+            }
+            .btn-outline:hover:not(:disabled) { background: #141414; border-color: #404040; }
             
-            ::-webkit-scrollbar { width: 4px; }
+            /* Custom Scrollbar for Terminal */
+            ::-webkit-scrollbar { width: 6px; }
             ::-webkit-scrollbar-track { background: transparent; }
-            ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-            ::-webkit-scrollbar-thumb:hover { background: #555; }
-            
-            .boredom-node { transition: all 0.1s ease; cursor: crosshair; }
-            .boredom-node:active { transform: scale(0.9); }
+            ::-webkit-scrollbar-thumb { background: #262626; border-radius: 6px; }
+            ::-webkit-scrollbar-thumb:hover { background: #404040; }
+
+            .pulse-ring {
+                animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: .3; }
+            }
+
+            .status-badge {
+                display: inline-flex; items-center; padding: 2px 8px;
+                border-radius: 9999px; font-size: 10px; font-weight: 500;
+                letter-spacing: 0.05em; text-transform: uppercase;
+            }
+            .status-pass { background: rgba(16, 185, 129, 0.1); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.2); }
+            .status-fail { background: rgba(239, 68, 68, 0.1); color: #F87171; border: 1px solid rgba(248, 113, 113, 0.2); }
+
+            .boredom-node { 
+                transition: all 0.15s ease; cursor: crosshair; 
+                background: #141414; border: 1px solid #262626;
+            }
+            .boredom-node:hover { background: #262626; border-color: #404040; }
+            .boredom-node:active { transform: scale(0.85); background: #E5E5E5; }
         </style>
     </head>
-    <body class="p-4 md:p-12 selection:bg-white/20 selection:text-white min-h-screen flex flex-col">
-        <div id="root" class="flex-grow flex flex-col"></div>
-        
+    <body>
+        <div id="root"></div>
         <script type="text/babel">
             const { useState, useEffect, useRef } = React;
+
+            // --- SVG ICONS ---
+            const IconLogo = () => (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+            );
+            const IconTerminal = () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line>
+                </svg>
+            );
+            const IconPlay = () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+            );
+            const IconPower = () => (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line>
+                </svg>
+            );
+
             function App() {
                 const [prompts, setPrompts] = useState({});
-                const [phase, setPhase] = useState("idle"); // idle, p1, p2, done
+                const [phase, setPhase] = useState("idle"); 
                 const [resultsP1, setResultsP1] = useState([]);
                 const [resultsP2, setResultsP2] = useState([]);
                 
-                // Initialization States
                 const [initStatus, setInitStatus] = useState("idle"); 
                 const [initTimer, setInitTimer] = useState(120);
                 
-                // Interactive Mini-game state
                 const [boredomScore, setBoredomScore] = useState(0);
+                const terminalEndRef = useRef(null);
 
                 useEffect(() => {
-                    fetch('/api/models').then(r => r.json()).then(d => {
-                        setPrompts(d.prompts);
-                    });
+                    fetch('/api/models').then(r => r.json()).then(d => setPrompts(d.prompts));
                 }, []);
+
+                useEffect(() => {
+                    if (terminalEndRef.current) {
+                        terminalEndRef.current.scrollIntoView({ behavior: "smooth" });
+                    }
+                }, [resultsP1, resultsP2]);
 
                 useEffect(() => {
                     let interval;
@@ -394,17 +491,15 @@ def serve_ui():
                     setPhase("p1");
                     setResultsP1([]); setResultsP2([]);
                     
-                    // SURGICAL UX FIX: Keep screen alive for mobile users backgrounding the app
                     let wakeLock = null;
                     try {
                         if ('wakeLock' in navigator) {
                             wakeLock = await navigator.wakeLock.request('screen');
                         }
-                    } catch (err) { console.log("WakeLock denied, relying on standard background execution."); }
+                    } catch (err) {}
 
                     const gateKeys = Object.keys(prompts);
                     
-                    // PHASE 1: Gemini vs Aeterna (Judge)
                     let p1Data = [];
                     for (const gate of gateKeys) {
                         try {
@@ -416,10 +511,9 @@ def serve_ui():
                             const data = await res.json();
                             p1Data.push(data);
                             setResultsP1([...p1Data]);
-                        } catch (e) { console.error(e); }
+                        } catch (e) {}
                     }
 
-                    // PHASE 2: Aeterna vs Gemini (Judge)
                     setPhase("p2");
                     let p2Data = [];
                     for (const gate of gateKeys) {
@@ -432,7 +526,7 @@ def serve_ui():
                             const data = await res.json();
                             p2Data.push(data);
                             setResultsP2([...p2Data]);
-                        } catch (e) { console.error(e); }
+                        } catch (e) {}
                     }
 
                     if (wakeLock !== null) wakeLock.release();
@@ -440,144 +534,165 @@ def serve_ui():
                 };
 
                 const calcScore = (resultsArray) => {
-                    if (resultsArray.length === 0) return "0.00";
+                    if (resultsArray.length === 0) return "0.0";
                     const passed = resultsArray.filter(r => r.status === 'PASSED').length;
-                    return ((passed / Object.keys(prompts).length) * 100).toFixed(2);
+                    return ((passed / Object.keys(prompts).length) * 100).toFixed(1);
                 };
 
                 const totalGates = Object.keys(prompts).length;
 
                 return (
-                    <div className="max-w-5xl mx-auto w-full flex-grow flex flex-col space-y-8">
-                        
-                        {/* CLEAN HEADER */}
-                        <header className="text-center pt-8 pb-4">
-                            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-[#EDEDED]">AGI Systems Directorate</h1>
-                            <p className="text-[#888888] mt-2 text-sm">True AGI Gauntlet <span className="mono-text text-xs ml-2 px-2 py-0.5 bg-white/10 rounded text-white/80">v4.0.26</span></p>
+                    <div className="app-container">
+                        {/* TOP NAVIGATION BAR */}
+                        <header className="bg-surface border-b border-border flex items-center justify-between px-6 z-10 relative">
+                            <div className="flex items-center space-x-3 text-brand">
+                                <IconLogo />
+                                <span className="font-semibold tracking-tight text-sm">AGI Directorate</span>
+                                <span className="bg-surface2 border border-border px-2 py-0.5 rounded text-[10px] mono-text text-gray-400">v4.0.26</span>
+                            </div>
+                            <div className="flex items-center space-x-4 text-xs font-medium">
+                                <span className="flex items-center space-x-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                                    <span>Telemetry API Online</span>
+                                </span>
+                            </div>
                         </header>
 
-                        {/* INITIALIZATION BLOCK (Hidden if already started) */}
-                        {phase === "idle" && (
-                            <div className="glass-panel p-8 md:p-12 text-center max-w-2xl mx-auto w-full space-y-6">
-                                <div>
-                                    <h2 className="text-lg font-medium mb-2">Engine Initialization Required</h2>
-                                    <p className="text-[#888888] text-sm leading-relaxed">
-                                        Prior to running the dual-phase AGI benchmark, the Sovereign Neuro-Symbolic Engine container must cold-boot. This takes approximately two minutes.
-                                    </p>
+                        {/* MAIN WORKSPACE GRID */}
+                        <main className="main-content">
+                            
+                            {/* SIDEBAR: CONTROLS & STATUS */}
+                            <aside className="panel p-6 flex flex-col h-full border-r border-border md:border-none">
+                                
+                                <div className="mb-8">
+                                    <h2 className="text-sm font-semibold text-brand mb-1">Execution Protocol</h2>
+                                    <p className="text-xs text-gray-500 leading-relaxed">Initialize the Sovereign Engine prior to executing the dual-phase AGI benchmark gauntlet.</p>
                                 </div>
-                                
-                                {initStatus === "waking" ? (
-                                    <div className="p-4 rounded-lg bg-white/5 border border-white/10 mono-text text-sm">
-                                        Container Spinning Up... Please wait <span className="text-white font-bold">{initTimer}s</span>
-                                    </div>
-                                ) : initStatus === "ready" ? (
-                                    <div className="space-y-4">
-                                        <div className="text-emerald-400 mono-text text-sm mb-4">SYSTEM ONLINE & READY</div>
-                                        <div className="text-xs text-[#888888] mb-4 mono-text bg-white/5 p-3 rounded text-left">
-                                            > PHASE 1: Participant [Gemini] | Judge [Aeterna]<br/>
-                                            > PHASE 2: Participant [Aeterna] | Judge [Gemini]<br/>
-                                            > BACKGROUND EXECUTION: Enabled via WakeLock. You may switch apps.
-                                        </div>
-                                        <button onClick={runAutomatedSequence} className="w-full btn-primary py-3 rounded-lg font-medium text-sm">
-                                            Initiate Automated Sequence
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <button onClick={triggerInitialization} className="w-full bg-white/10 hover:bg-white/20 text-white border border-white/10 py-3 rounded-lg font-medium text-sm transition-all">
-                                        Boot Sovereign Engine
-                                    </button>
-                                )}
-                            </div>
-                        )}
 
-                        {/* ACTIVE DASHBOARD */}
-                        {phase !== "idle" && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-grow">
-                                
-                                {/* SCORE & STATUS PANEL */}
-                                <div className="space-y-6 flex flex-col">
-                                    <div className="glass-panel p-6 flex flex-col items-center justify-center space-y-4 flex-grow relative overflow-hidden">
-                                        <div className="text-xs text-[#888888] font-medium tracking-wide uppercase">Phase 1 Score (Gemini)</div>
-                                        <div className="text-5xl font-semibold mono-text">{calcScore(resultsP1)}<span className="text-2xl text-[#888888]">%</span></div>
-                                        <div className="w-full bg-white/10 h-1 rounded-full mt-2 overflow-hidden">
-                                            <div className="bg-white h-full transition-all duration-300" style={{width: `${(resultsP1.length/totalGates)*100}%`}}></div>
+                                {/* ACTION CENTER */}
+                                <div className="space-y-4 mb-8">
+                                    {phase === "idle" && (
+                                        <div className="bg-surface2 border border-border rounded-lg p-4 space-y-4">
+                                            {initStatus === "waking" ? (
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs text-gray-400 mono-text">Container Booting...</span>
+                                                    <span className="text-brand font-medium mono-text pulse-ring">{initTimer}s</span>
+                                                </div>
+                                            ) : initStatus === "ready" ? (
+                                                <div className="space-y-4">
+                                                    <div className="flex items-center space-x-2 text-emerald-400 text-xs mono-text">
+                                                        <IconPower /> <span>ENGINE ONLINE</span>
+                                                    </div>
+                                                    <button onClick={runAutomatedSequence} className="w-full btn-primary flex items-center justify-center space-x-2 py-2.5 rounded-md text-xs font-medium">
+                                                        <IconPlay /> <span>Start Sequence</span>
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button onClick={triggerInitialization} className="w-full btn-outline flex items-center justify-center space-x-2 py-2.5 rounded-md text-xs font-medium">
+                                                    <IconPower /> <span>Boot Engine</span>
+                                                </button>
+                                            )}
                                         </div>
-                                    </div>
+                                    )}
                                     
-                                    <div className="glass-panel p-6 flex flex-col items-center justify-center space-y-4 flex-grow">
-                                        <div className="text-xs text-[#888888] font-medium tracking-wide uppercase">Phase 2 Score (Aeterna)</div>
-                                        <div className="text-5xl font-semibold mono-text">{calcScore(resultsP2)}<span className="text-2xl text-[#888888]">%</span></div>
-                                        <div className="w-full bg-white/10 h-1 rounded-full mt-2 overflow-hidden">
-                                            <div className="bg-white h-full transition-all duration-300" style={{width: `${(resultsP2.length/totalGates)*100}%`}}></div>
-                                        </div>
-                                    </div>
-
-                                    {/* BOREDOM MITIGATION PROTOCOL */}
-                                    {(phase === "p1" || phase === "p2") && (
-                                        <div className="glass-panel p-4 text-center">
-                                            <div className="text-[10px] text-[#888888] uppercase tracking-wider mb-3">Boredom Mitigation / Node Calibration</div>
-                                            <div className="flex flex-wrap gap-2 justify-center mb-2">
-                                                {[...Array(10)].map((_, i) => (
-                                                    <div key={i} onClick={() => setBoredomScore(s => s + 1)} className="boredom-node w-6 h-6 rounded-md bg-white/10 hover:bg-white/30 border border-white/20"></div>
-                                                ))}
+                                    {phase !== "idle" && (
+                                        <div className="bg-surface2 border border-border rounded-lg p-4 space-y-4">
+                                            <div className="text-xs text-gray-400 mono-text uppercase tracking-wider mb-2">Live Sequence</div>
+                                            <div className="flex items-center space-x-2 text-brand text-xs font-medium">
+                                                <span className={`w-1.5 h-1.5 rounded-full ${phase !== 'done' ? 'bg-amber-400 pulse-ring' : 'bg-gray-600'}`}></span>
+                                                <span>{phase === "p1" ? "Phase 1: Gemini vs Aeterna" : phase === "p2" ? "Phase 2: Aeterna vs Gemini" : "Sequence Terminated"}</span>
                                             </div>
-                                            <div className="mono-text text-xs text-[#888888]">Nodes Calibrated: {boredomScore}</div>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* TERMINAL LOGS PANEL */}
-                                <div className="glass-panel p-6 flex flex-col h-[600px]">
-                                    <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
-                                        <h3 className="text-sm font-medium">Evaluation Telemetry</h3>
-                                        <span className="text-xs text-[#888888] mono-text">
-                                            {phase === "p1" ? "Running Phase 1..." : phase === "p2" ? "Running Phase 2..." : "Sequence Complete"}
-                                        </span>
-                                    </div>
-                                    
-                                    <div className="flex-grow overflow-y-auto space-y-2 pr-2">
-                                        {/* RENDER P1 */}
-                                        {resultsP1.map((r, i) => (
-                                            <div key={`p1-${i}`} className="p-3 rounded-lg bg-white/5 border border-white/5 text-sm">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <span className="text-white/80 font-medium text-xs">P1: {r.gate}</span>
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded mono-text ${r.status === 'PASSED' ? 'bg-white text-black' : 'bg-white/10 text-white/50'}`}>
-                                                        {r.status}
-                                                    </span>
-                                                </div>
+                                {/* LIVE METRICS */}
+                                {phase !== "idle" && (
+                                    <div className="space-y-4 mb-auto">
+                                        <div className="bg-surface2 border border-border rounded-lg p-4">
+                                            <div className="flex justify-between items-end mb-2">
+                                                <span className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Gemini Score</span>
+                                                <span className="text-2xl font-semibold text-brand mono-text">{calcScore(resultsP1)}%</span>
                                             </div>
-                                        ))}
-                                        
-                                        {/* RENDER P2 */}
-                                        {resultsP2.map((r, i) => (
-                                            <div key={`p2-${i}`} className="p-3 rounded-lg bg-white/5 border border-white/5 text-sm">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <span className="text-white/80 font-medium text-xs">P2: {r.gate}</span>
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded mono-text ${r.status === 'PASSED' ? 'bg-white text-black' : 'bg-white/10 text-white/50'}`}>
-                                                        {r.status}
-                                                    </span>
-                                                </div>
+                                            <div className="w-full bg-[#030303] h-1 rounded-full overflow-hidden">
+                                                <div className="bg-white h-full transition-all duration-500" style={{width: `${(resultsP1.length/totalGates)*100}%`}}></div>
                                             </div>
-                                        ))}
-                                        
-                                        {/* AUTOSCROLL ANCHOR */}
-                                        <div style={{ float:"left", clear: "both" }}
-                                             ref={(el) => { el && el.scrollIntoView({ behavior: "smooth" }) }}>
+                                        </div>
+                                        <div className="bg-surface2 border border-border rounded-lg p-4">
+                                            <div className="flex justify-between items-end mb-2">
+                                                <span className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Aeterna Score</span>
+                                                <span className="text-2xl font-semibold text-brand mono-text">{calcScore(resultsP2)}%</span>
+                                            </div>
+                                            <div className="w-full bg-[#030303] h-1 rounded-full overflow-hidden">
+                                                <div className="bg-white h-full transition-all duration-500" style={{width: `${(resultsP2.length/totalGates)*100}%`}}></div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                        )}
+                                )}
 
-                        <footer className="pt-8 pb-4 text-center mt-auto border-t border-white/10">
-                            <p className="text-[#555555] text-xs font-medium mono-text">
-                                &copy; 2026 AGI Systems Directorate. All rights reserved.
-                            </p>
-                        </footer>
+                                {/* BOREDOM MATRIX */}
+                                {(phase === "p1" || phase === "p2") && (
+                                    <div className="mt-8 pt-6 border-t border-border">
+                                        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-3">Calibration Matrix</div>
+                                        <div className="grid grid-cols-5 gap-1.5 mb-3">
+                                            {[...Array(15)].map((_, i) => (
+                                                <div key={i} onClick={() => setBoredomScore(s => s + 1)} className="boredom-node w-full aspect-square rounded-sm"></div>
+                                            ))}
+                                        </div>
+                                        <div className="mono-text text-[10px] text-gray-500">Nodes Aligned: {boredomScore}</div>
+                                    </div>
+                                )}
+                            </aside>
+
+                            {/* MAIN VIEW: TERMINAL / LOGS */}
+                            <section className="panel flex flex-col h-full bg-[#030303]">
+                                <div className="sticky top-0 bg-[#030303]/90 backdrop-blur-md border-b border-border px-6 py-4 flex justify-between items-center z-10">
+                                    <div className="flex items-center space-x-2 text-brand text-xs font-medium">
+                                        <IconTerminal /> <span>Execution Logs</span>
+                                    </div>
+                                    <span className="text-[10px] text-gray-500 mono-text">Output Stream</span>
+                                </div>
+                                
+                                <div className="p-6 flex-grow overflow-y-auto space-y-3 font-mono text-xs">
+                                    {phase === "idle" && (
+                                        <div className="text-gray-600">Waiting for initialization command...</div>
+                                    )}
+                                    
+                                    {resultsP1.map((r, i) => (
+                                        <div key={`p1-${i}`} className="bg-surface border border-border p-3 rounded-md flex justify-between items-start group hover:border-gray-600 transition-colors">
+                                            <div className="flex space-x-3">
+                                                <span className="text-gray-500">[{`0${i+1}`.slice(-2)}]</span>
+                                                <span className="text-gray-300 font-medium">Phase 1 :: {r.gate}</span>
+                                            </div>
+                                            <span className={`status-badge ${r.status === 'PASSED' ? 'status-pass' : 'status-fail'}`}>
+                                                {r.status}
+                                            </span>
+                                        </div>
+                                    ))}
+                                    
+                                    {resultsP2.map((r, i) => (
+                                        <div key={`p2-${i}`} className="bg-surface border border-border p-3 rounded-md flex justify-between items-start group hover:border-gray-600 transition-colors">
+                                            <div className="flex space-x-3">
+                                                <span className="text-emerald-500/50">[{`0${i+1}`.slice(-2)}]</span>
+                                                <span className="text-gray-300 font-medium">Phase 2 :: {r.gate}</span>
+                                            </div>
+                                            <span className={`status-badge ${r.status === 'PASSED' ? 'status-pass' : 'status-fail'}`}>
+                                                {r.status}
+                                            </span>
+                                        </div>
+                                    ))}
+                                    
+                                    <div ref={terminalEndRef} className="h-4"></div>
+                                </div>
+                            </section>
+                        </main>
                     </div>
                 );
             }
-            ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+            
+            const rootElement = document.getElementById('root');
+            const root = ReactDOM.createRoot(rootElement);
+            root.render(<App />);
         </script>
     </body>
     </html>
