@@ -251,34 +251,71 @@ def serve_ui():
     <!DOCTYPE html>
     <html lang="en">
     <head>
-        <!-- ======================================================================= -->
-        <!-- 🚨 THE BRUTE FORCE 90s POPUP ERROR CATCHER 🚨                           -->
-        <!-- ======================================================================= -->
-        <script>
-            window.addEventListener('error', function(e) {
-                var msg = e.message || "Unknown Error";
-                var file = e.filename || "Unknown File";
-                
-                // Catching silent CDN script loading failures (CORS / Network drop)
-                if (e.target && e.target.nodeName === 'SCRIPT') {
-                    msg = "SCRIPT LOAD FAILED (Likely CORS or Network block): " + e.target.src;
-                    file = e.target.src;
-                }
-                
-                alert("🚨 CRITICAL ERROR CAUGHT 🚨\\n\\nMessage: " + msg + "\\nFile: " + file + "\\nLine: " + (e.lineno || "N/A"));
-            }, true); // The 'true' is mandatory here to catch network fetch errors on scripts
-
-            window.addEventListener('unhandledrejection', function(e) {
-                alert("🚨 PROMISE REJECTION 🚨\\n\\n" + (e.reason && e.reason.stack ? e.reason.stack : e.reason));
-            });
-        </script>
-        <!-- ======================================================================= -->
-
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <title>AGI Systems Directorate | Evaluation</title>
         
-        <!-- SECURED CDN DEPLOYMENTS WITH CROSS-ORIGIN AND DEVELOPMENT BUILDS FOR READABLE ERRORS -->
+        <!-- RUTHLESS POPUP ERROR INTERCEPTOR -->
+        <script>
+            (function() {
+                // Formatting function to safely extract the deepest, darkest raw data available
+                function buildRawDump(obj) {
+                    if (!obj) return "No raw object provided.";
+                    try {
+                        var props = Object.getOwnPropertyNames(obj);
+                        var dump = {};
+                        for (var i = 0; i < props.length; i++) {
+                            dump[props[i]] = obj[props[i]];
+                        }
+                        return JSON.stringify(dump, null, 2).substring(0, 800) + "... (truncated)";
+                    } catch (e) {
+                        return String(obj);
+                    }
+                }
+
+                function nukeWithPopup(source, msg, rawData) {
+                    alert(
+                        "🚨 RUTHLESS ERROR CAUGHT 🚨\\n\\n" +
+                        "SOURCE: " + source + "\\n\\n" +
+                        "MESSAGE: " + msg + "\\n\\n" +
+                        "RAW DUMP:\\n" + buildRawDump(rawData)
+                    );
+                }
+
+                // 1. Catch script tags and network loads completely failing
+                window.addEventListener('error', function(e) {
+                    if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+                        nukeWithPopup(
+                            "NETWORK / CDN LOAD FAILURE", 
+                            "The browser completely failed to fetch the file. Check your mobile data, DNS, or Ad-blocker. The browser provides NO further information for security reasons.", 
+                            { tag: e.target.tagName, url: e.target.src || e.target.href }
+                        );
+                    }
+                }, true);
+
+                // 2. Catch standard runtime JS errors
+                window.onerror = function(msg, url, line, col, error) {
+                    nukeWithPopup("RUNTIME JS ERROR", msg + " at " + line + ":" + col, error);
+                    return false;
+                };
+
+                // 3. Catch async promise rejections
+                window.addEventListener('unhandledrejection', function(e) {
+                    nukeWithPopup("UNHANDLED PROMISE", e.reason ? e.reason.toString() : "Unknown promise failure", e.reason);
+                });
+                
+                // 4. Hijack console.error just in case React tries to die quietly
+                var origErr = console.error;
+                console.error = function() {
+                    origErr.apply(console, arguments);
+                    var args = Array.prototype.slice.call(arguments);
+                    var combinedMsg = args.map(function(a) { return String(a); }).join(" ");
+                    nukeWithPopup("CONSOLE.ERROR TRIGGERED", combinedMsg, args);
+                };
+            })();
+        </script>
+
+        <!-- SECURED CDN DEPLOYMENTS -->
         <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
         <script src="https://unpkg.com/react@18.2.0/umd/react.development.js" crossorigin="anonymous"></script>
         <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js" crossorigin="anonymous"></script>
@@ -293,7 +330,6 @@ def serve_ui():
             .btn-primary:hover:not(:disabled) { background: #FFFFFF; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,255,255,0.1); }
             .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
             
-            /* Clean Scrollbar */
             ::-webkit-scrollbar { width: 4px; }
             ::-webkit-scrollbar-track { background: transparent; }
             ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
@@ -304,7 +340,6 @@ def serve_ui():
         </style>
     </head>
     <body class="p-4 md:p-12 selection:bg-white/20 selection:text-white min-h-screen flex flex-col">
-        
         <div id="root" class="flex-grow flex flex-col"></div>
         
         <script type="text/babel">
