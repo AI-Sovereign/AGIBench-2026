@@ -255,56 +255,6 @@ def serve_ui():
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <title>AGI Systems Directorate | Evaluation</title>
         
-        <!-- THE ALL-SEEING DIAGNOSTIC PARASITE (CATCHES PROMISES & CONSOLE ERRORS) -->
-        <script>
-            (function() {
-                function showErrorBox(msg) {
-                    var errBox = document.getElementById('ui-error-gatekeeper');
-                    if (!errBox) {
-                        errBox = document.createElement('div');
-                        errBox.id = 'ui-error-gatekeeper';
-                        errBox.style = 'position:fixed; top:10px; left:10px; right:10px; background:#1A0505; border:1px solid #FF4444; color:#FF8888; padding:12px; border-radius:8px; z-index:99999; font-family:monospace; font-size:11px; white-space:pre-wrap; max-height:80vh; overflow-y:auto; word-break:break-all;';
-                        
-                        var appendToDOM = function() {
-                            if (document.body) {
-                                document.body.appendChild(errBox);
-                            } else {
-                                document.documentElement.appendChild(errBox);
-                            }
-                        };
-                        
-                        if (document.readyState === 'loading') {
-                            document.addEventListener('DOMContentLoaded', appendToDOM);
-                        } else {
-                            appendToDOM();
-                        }
-                    }
-                    errBox.innerText += "\\n\\n--- NEW DIAGNOSTIC ---\\n" + msg;
-                }
-
-                // Catch standard errors
-                window.addEventListener('error', function(e) {
-                    showErrorBox("🚨 WINDOW ERROR: " + e.message + "\\nLine: " + e.lineno + " in " + e.filename);
-                });
-
-                // Catch background fetch/async failures that skip window.onerror
-                window.addEventListener('unhandledrejection', function(e) {
-                    showErrorBox("🚨 PROMISE REJECTION (Fetch/Async failed): " + (e.reason && e.reason.stack ? e.reason.stack : e.reason));
-                });
-
-                // Hijack console.error to catch Babel compilation silent failures
-                var originalConsoleError = console.error;
-                console.error = function() {
-                    originalConsoleError.apply(console, arguments);
-                    var argsArray = Array.prototype.slice.call(arguments);
-                    var msg = argsArray.map(function(a) { 
-                        return (typeof a === 'object') ? JSON.stringify(a) : String(a); 
-                    }).join(' ');
-                    showErrorBox("🚨 CONSOLE.ERROR: " + msg);
-                };
-            })();
-        </script>
-
         <!-- SECURED CDN DEPLOYMENTS WITH CROSS-ORIGIN AND DEVELOPMENT BUILDS FOR READABLE ERRORS -->
         <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
         <script src="https://unpkg.com/react@18.2.0/umd/react.development.js" crossorigin="anonymous"></script>
@@ -331,7 +281,51 @@ def serve_ui():
         </style>
     </head>
     <body class="p-4 md:p-12 selection:bg-white/20 selection:text-white min-h-screen flex flex-col">
+        
+        <!-- ======================================================================= -->
+        <!-- 🚨 THE NUCLEAR ERROR CATCHER (HARDCODED DOM ELEMENT) 🚨                 -->
+        <!-- ======================================================================= -->
+        <div id="FATAL_ERROR_DUMP" style="display:none; position:fixed; inset:0; background:#300000; color:#ff8888; z-index:9999999; padding:20px; font-family:monospace; font-size:14px; overflow:auto; border: 10px solid red;">
+            <h2 style="color:white; font-size: 24px; margin-bottom: 20px;">🚨 JAVASCRIPT SYSTEM FAILURE 🚨</h2>
+            <p style="color:#ffaaaa; margin-bottom: 20px;">If you are seeing this, the React UI completely crashed. Take a screenshot of the text below.</p>
+            <pre id="FATAL_ERROR_TEXT" style="white-space: pre-wrap; word-wrap: break-word;"></pre>
+        </div>
+        <script>
+            (function() {
+                var dump = document.getElementById('FATAL_ERROR_DUMP');
+                var text = document.getElementById('FATAL_ERROR_TEXT');
+                
+                function throwItInYourFace(msg) {
+                    dump.style.display = 'block';
+                    text.innerText += "\\n--- NEW ERROR CAUGHT ---\\n" + msg + "\\n";
+                }
+
+                // Standard runtime errors
+                window.addEventListener('error', function(e) {
+                    throwItInYourFace("WINDOW ERROR: " + e.message + "\\nFile: " + e.filename + "\\nLine: " + e.lineno + ":" + e.colno + "\\nStack:\\n" + (e.error ? e.error.stack : 'N/A'));
+                });
+
+                // Failed API fetches / unhandled promises
+                window.addEventListener('unhandledrejection', function(e) {
+                    throwItInYourFace("UNHANDLED PROMISE: " + (e.reason && e.reason.stack ? e.reason.stack : String(e.reason)));
+                });
+
+                // Babel/React silent console deaths
+                var origErr = console.error;
+                console.error = function() {
+                    origErr.apply(console, arguments);
+                    var argsArray = Array.prototype.slice.call(arguments);
+                    var msg = argsArray.map(function(a) { 
+                        return (typeof a === 'object') ? JSON.stringify(a, null, 2) : String(a); 
+                    }).join(' ');
+                    throwItInYourFace("CONSOLE ERROR (React/Babel): " + msg);
+                };
+            })();
+        </script>
+        <!-- ======================================================================= -->
+
         <div id="root" class="flex-grow flex flex-col"></div>
+        
         <script type="text/babel">
             const { useState, useEffect, useRef } = React;
             function App() {
