@@ -11,7 +11,7 @@ from fastapi import FastAPI, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List, Dict
-from gradio_client import Client # Surgical Addition
+from gradio_client import Client
 
 # =======================================================================
 # 🛑 SURGICAL FIX APPLIED - THE OMEGA SYNTHESIS & UI OVERHAUL 🛑
@@ -28,7 +28,7 @@ class ModelConnector:
             "zephyr-7b": self._hf_zephyr_inference,
             "llama-3-8b": self._hf_llama3_inference,
             "gemini": self._google_inference,
-            "aeterna-vox": self._aeterna_inference, # Surgical Addition
+            "aeterna-vox": self._aeterna_inference, 
             "custom-upload": self._custom_endpoint_inference
         }
         self.active_model = "nexus"
@@ -36,8 +36,9 @@ class ModelConnector:
     async def _aeterna_inference(self, prompt):
         # Bridge to AGI Systems Directorate Sovereign Architecture
         is_judge = "AGI BENCHMARK JUDGE" in prompt
+        original_prompt = prompt # STORE ORIGINAL TO FIX THE 0% DECAPITATION BUG
         
-        # SURGICAL FIX: Force absolute state orientation so it knows if it is Participant or Judge
+        # Force absolute state orientation so it knows if it is Participant or Judge
         if not is_judge:
             prompt = f"[CONTEXT: You are currently the PARTICIPANT/SUBJECT of this benchmark gate. Solve the puzzle directly. Do NOT output PASSED or FAILED.]\n{prompt}"
             
@@ -68,10 +69,13 @@ class ModelConnector:
                 clean_text = re.sub(r'\[.*?\]', '', raw_result).strip()
             
             # --- SURGICAL FIX 3.0: Prompt Decapitation ---
-            if prompt in clean_text:
+            # Now checking against BOTH the original prompt and the modified one
+            if original_prompt in clean_text:
+                clean_text = clean_text.split(original_prompt, 1)[-1].strip()
+            elif prompt in clean_text:
                 clean_text = clean_text.split(prompt, 1)[-1].strip()
-            elif clean_text.lower().startswith(prompt.strip().lower()):
-                clean_text = clean_text[len(prompt.strip()):].strip()
+            elif clean_text.lower().startswith(original_prompt.strip().lower()):
+                clean_text = clean_text[len(original_prompt.strip()):].strip()
                 
             clean_text = re.sub(r'(?i)^(answer|response)?\s*[:\-]\s*', '', clean_text).strip()
             
@@ -284,7 +288,7 @@ async def proxy_babel():
     return Response(content=content, media_type="application/javascript")
 
 # =======================================================================
-# 🎨 ENTERPRISE TIER UI - CLEAN, MINIMAL, "BIG THREE" AESTHETIC
+# 🎨 ENTERPRISE TIER UI - SaaS PRODUCT AESTHETIC
 # =======================================================================
 @app.get("/")
 def serve_ui():
@@ -306,97 +310,92 @@ def serve_ui():
                 theme: {
                     extend: {
                         colors: {
-                            background: '#0A0A0A',
-                            surface: '#121212',
-                            border: '#262626',
-                            textPrimary: '#EDEDED',
-                            textSecondary: '#888888',
-                            accent: '#FFFFFF'
+                            background: '#F9FAFB',
+                            surface: '#FFFFFF',
+                            border: '#E5E7EB',
+                            textPrimary: '#111827',
+                            textSecondary: '#6B7280',
+                            brand: '#4F46E5',
+                            brandHover: '#4338CA'
                         },
                         fontFamily: {
                             sans: ['Inter', '-apple-system', 'sans-serif'],
-                            mono: ['Geist Mono', 'SFMono-Regular', 'monospace'],
+                        },
+                        boxShadow: {
+                            'soft': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
                         }
                     }
                 }
             }
         </script>
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
             
             body { 
-                background-color: #0A0A0A;
-                color: #EDEDED; 
+                background-color: #F9FAFB;
+                color: #111827; 
                 font-family: 'Inter', sans-serif; 
                 -webkit-font-smoothing: antialiased;
                 margin: 0;
                 height: 100vh;
-                overflow: hidden;
+                display: flex;
+                flex-direction: column;
             }
             
-            .mono { font-family: 'Geist Mono', monospace; }
-            
-            .app-grid {
-                display: grid;
-                grid-template-columns: 280px 1fr;
-                height: 100vh;
-            }
-            
-            @media (max-width: 768px) {
-                .app-grid {
-                    grid-template-columns: 1fr;
-                    grid-template-rows: auto 1fr;
-                    overflow-y: auto;
-                }
-                body { overflow: auto; height: auto; min-height: 100vh; }
-            }
-
             .btn-primary {
-                background: #FFFFFF; color: #000000;
-                font-weight: 500;
-                transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-                border-radius: 8px;
-            }
-            .btn-primary:hover:not(:disabled) {
-                background: #E5E5E5;
-                transform: scale(0.98);
-                box-shadow: 0 4px 14px rgba(255,255,255,0.15);
-            }
-            .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-
-            .btn-secondary {
-                background: #121212; color: #EDEDED;
-                border: 1px solid #262626;
+                background: #4F46E5; color: #FFFFFF;
                 font-weight: 500;
                 transition: all 0.2s ease;
                 border-radius: 8px;
             }
-            .btn-secondary:hover:not(:disabled) { background: #1A1A1A; border-color: #333333; }
+            .btn-primary:hover:not(:disabled) {
+                background: #4338CA;
+                box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+            }
+            .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+            .btn-secondary {
+                background: #FFFFFF; color: #374151;
+                border: 1px solid #D1D5DB;
+                font-weight: 500;
+                transition: all 0.2s ease;
+                border-radius: 8px;
+            }
+            .btn-secondary:hover:not(:disabled) { background: #F3F4F6; }
 
             /* Refined Scrollbar */
-            ::-webkit-scrollbar { width: 4px; }
+            ::-webkit-scrollbar { width: 6px; }
             ::-webkit-scrollbar-track { background: transparent; }
-            ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-            ::-webkit-scrollbar-thumb:hover { background: #555; }
+            ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 6px; }
+            ::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
 
             .badge {
-                padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; letter-spacing: 0.02em;
+                padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; 
             }
-            .badge-pass { background: rgba(34, 197, 94, 0.1); color: #4ADE80; border: 1px solid rgba(34, 197, 94, 0.2); }
-            .badge-fail { background: rgba(239, 68, 68, 0.1); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+            .badge-pass { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
+            .badge-fail { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
             
             .card-hover { transition: all 0.2s ease; }
-            .card-hover:hover { border-color: #404040; background: #171717; }
+            .card-hover:hover { transform: translateY(-1px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border-color: #D1D5DB; }
+            
+            .shimmer {
+                background: linear-gradient(90deg, #F3F4F6 0px, #FFFFFF 50%, #F3F4F6 100%);
+                background-size: 200% 100%;
+                animation: shimmer 1.5s infinite linear;
+            }
+            @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
         </style>
     </head>
     <body>
-        <div id="root"></div>
+        <div id="root" class="h-full flex flex-col"></div>
         <script type="text/babel">
             const { useState, useEffect, useRef } = React;
 
-            const IconCommand = () => (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3s0 0 0 0a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"></path>
+            const LogoSVG = () => (
+                <svg width="28" height="28" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="40" height="40" rx="10" fill="#4F46E5"/>
+                    <path d="M12 20L20 12L28 20L20 28L12 20Z" stroke="white" strokeWidth="2.5" strokeLinejoin="round"/>
+                    <circle cx="20" cy="20" r="3" fill="white"/>
                 </svg>
             );
 
@@ -495,49 +494,71 @@ def serve_ui():
                 const totalGates = Object.keys(prompts).length;
 
                 return (
-                    <div className="app-grid">
-                        {/* ENTERPRISE SIDEBAR */}
-                        <aside className="bg-surface border-r border-border flex flex-col h-full">
-                            <div className="p-6 border-b border-border flex items-center space-x-3">
-                                <div className="p-1.5 bg-white text-black rounded-md"><IconCommand /></div>
+                    <div className="flex flex-col h-full overflow-hidden">
+                        {/* ENTERPRISE TOP NAVIGATION */}
+                        <header className="bg-surface border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
+                            <div className="flex items-center space-x-3">
+                                <LogoSVG />
                                 <div>
-                                    <h1 className="font-semibold text-sm tracking-tight text-textPrimary">AGI Directorate</h1>
-                                    <p className="text-[10px] text-textSecondary mono uppercase tracking-wider">Workspace Console</p>
+                                    <h1 className="font-bold text-base text-textPrimary leading-tight">AGI Systems Directorate</h1>
+                                    <p className="text-xs text-textSecondary font-medium">Evaluation Workspace</p>
                                 </div>
                             </div>
+                            <div className="flex items-center space-x-4">
+                                <div className="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">
+                                    <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                    <span className="text-xs text-gray-700 font-semibold">System Online</span>
+                                </div>
+                            </div>
+                        </header>
 
-                            <div className="p-6 flex-grow flex flex-col">
+                        {/* MAIN LAYOUT */}
+                        <main className="flex-grow flex flex-col md:flex-row overflow-hidden max-w-7xl w-full mx-auto">
+                            
+                            {/* LEFT CONTROL PANEL */}
+                            <aside className="w-full md:w-80 p-6 flex flex-col shrink-0 overflow-y-auto border-r border-border bg-gray-50/50">
                                 
-                                {/* Dynamic Initialization Logic */}
-                                {initStatus === "idle" && (
-                                    <div className="mb-6">
-                                        <p className="text-xs text-textSecondary leading-relaxed">Initialize the Sovereign Engine prior to executing the benchmark.</p>
+                                {/* ABOUT SECTION - HIDES WHEN BOOTED/RUNNING */}
+                                {(initStatus === "idle" || initStatus === "waking") && (
+                                    <div className="bg-white border border-indigo-100 rounded-xl p-5 mb-6 shadow-sm">
+                                        <h3 className="text-indigo-900 font-bold text-sm mb-2 flex items-center gap-2">
+                                            <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            About Benchmark
+                                        </h3>
+                                        <p className="text-gray-600 text-xs leading-relaxed">
+                                            The initial constraints (Gates 1-10) are relatively trivial; most standard LLMs can navigate them successfully regardless of reasoning quality. However, progressing past the 10th gate introduces compounding, dynamic difficulty spikes designed specifically to stress-test true neuro-symbolic reasoning.
+                                        </p>
                                     </div>
                                 )}
 
                                 {/* ACTION CENTER */}
                                 <div className="mb-8">
+                                    <h2 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider">Execution Controls</h2>
                                     {phase === "idle" ? (
-                                        <div className="space-y-4">
+                                        <div className="space-y-3">
                                             {initStatus === "waking" ? (
-                                                <div className="btn-secondary w-full py-2.5 flex justify-center items-center rounded-lg opacity-70 cursor-wait">
-                                                    <span className="text-xs font-medium">Booting Architecture ({initTimer}s)</span>
+                                                <div className="btn-secondary w-full py-3 flex justify-center items-center rounded-lg opacity-70 cursor-wait shimmer border-transparent">
+                                                    <span className="text-sm font-semibold text-gray-600">Booting Architecture ({initTimer}s)</span>
                                                 </div>
                                             ) : initStatus === "ready" ? (
-                                                <button onClick={runAutomatedSequence} className="w-full btn-primary py-2.5 flex items-center justify-center space-x-2 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
-                                                    <span className="text-xs">Execute Benchmark</span>
+                                                <button onClick={runAutomatedSequence} className="w-full btn-primary py-3 flex items-center justify-center space-x-2">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                    <span className="text-sm">Execute Benchmark</span>
                                                 </button>
                                             ) : (
-                                                <button onClick={triggerInitialization} className="w-full btn-secondary py-2.5 flex items-center justify-center space-x-2">
-                                                    <span className="text-xs">Initialize Engine</span>
+                                                <button onClick={triggerInitialization} className="w-full btn-secondary py-3 flex items-center justify-center space-x-2">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                                    <span className="text-sm">Initialize Engine</span>
                                                 </button>
                                             )}
                                         </div>
                                     ) : (
-                                        <div className="bg-background border border-border rounded-lg p-4">
-                                            <div className="text-[10px] text-textSecondary mono uppercase tracking-widest mb-1">Status</div>
-                                            <div className="flex items-center space-x-2 text-sm font-medium text-textPrimary">
-                                                <span className={`w-2 h-2 rounded-full ${phase !== 'done' ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></span>
+                                        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                                            <div className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-2">Current Status</div>
+                                            <div className="flex items-center space-x-3 text-sm font-bold text-gray-900">
+                                                <span className={`w-2.5 h-2.5 rounded-full ${phase !== 'done' ? 'bg-indigo-500 animate-pulse' : 'bg-green-500'}`}></span>
                                                 <span>{phase === "p1" ? "Phase 1: Evaluating Gemini" : phase === "p2" ? "Phase 2: Evaluating Aeterna" : "Evaluation Complete"}</span>
                                             </div>
                                         </div>
@@ -546,80 +567,71 @@ def serve_ui():
 
                                 {/* ENTERPRISE METRICS */}
                                 {phase !== "idle" && (
-                                    <div className="space-y-6 mt-auto">
+                                    <div className="space-y-6 mt-auto bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                                         <div>
                                             <div className="flex justify-between items-baseline mb-2">
-                                                <span className="text-xs text-textSecondary font-medium">Gemini Analytics</span>
-                                                <span className="text-xl font-semibold text-textPrimary mono">{calcScore(resultsP1)}%</span>
+                                                <span className="text-sm text-gray-600 font-semibold">Gemini Performance</span>
+                                                <span className="text-xl font-bold text-gray-900">{calcScore(resultsP1)}%</span>
                                             </div>
-                                            <div className="w-full bg-background border border-border h-1.5 rounded-full overflow-hidden">
-                                                <div className="bg-white h-full transition-all duration-700 ease-out" style={{width: `${(resultsP1.length/totalGates)*100}%`}}></div>
+                                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                                <div className="bg-indigo-500 h-full transition-all duration-700 ease-out" style={{width: `${(resultsP1.length/totalGates)*100}%`}}></div>
                                             </div>
                                         </div>
-                                        <div>
+                                        <div className="pt-2">
                                             <div className="flex justify-between items-baseline mb-2">
-                                                <span className="text-xs text-textSecondary font-medium">Aeterna Analytics</span>
-                                                <span className="text-xl font-semibold text-textPrimary mono">{calcScore(resultsP2)}%</span>
+                                                <span className="text-sm text-gray-600 font-semibold">Aeterna Performance</span>
+                                                <span className="text-xl font-bold text-gray-900">{calcScore(resultsP2)}%</span>
                                             </div>
-                                            <div className="w-full bg-background border border-border h-1.5 rounded-full overflow-hidden">
-                                                <div className="bg-white h-full transition-all duration-700 ease-out" style={{width: `${(resultsP2.length/totalGates)*100}%`}}></div>
+                                            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                                <div className="bg-indigo-500 h-full transition-all duration-700 ease-out" style={{width: `${(resultsP2.length/totalGates)*100}%`}}></div>
                                             </div>
                                         </div>
                                     </div>
                                 )}
-                            </div>
-                        </aside>
+                            </aside>
 
-                        {/* MAIN WORKSPACE - RESULTS GRID */}
-                        <main className="bg-background flex flex-col h-full">
-                            <header className="px-8 py-5 border-b border-border flex items-center justify-between bg-background/80 backdrop-blur-md sticky top-0 z-10">
-                                <h2 className="text-sm font-semibold text-textPrimary">Execution Logs</h2>
-                                <div className="flex items-center space-x-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]"></span>
-                                    <span className="text-[11px] text-textSecondary font-medium">System Online</span>
-                                </div>
-                            </header>
-                            
-                            <div className="p-8 flex-grow overflow-y-auto" ref={scrollRef}>
-                                {phase === "idle" && (
-                                    <div className="h-full flex items-center justify-center text-textSecondary text-sm">
-                                        Awaiting execution command.
+                            {/* RIGHT RESULTS AREA */}
+                            <div className="flex-grow p-6 overflow-y-auto bg-background" ref={scrollRef}>
+                                {phase === "idle" ? (
+                                    <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-4">
+                                        <svg className="w-12 h-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                        </svg>
+                                        <p className="text-sm font-medium">Awaiting execution command to populate telemetry.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3 max-w-3xl mx-auto pb-10">
+                                        {resultsP1.map((r, i) => (
+                                            <div key={`p1-${i}`} className="bg-surface border border-border p-4 rounded-xl flex justify-between items-center card-hover">
+                                                <div className="flex items-center space-x-4">
+                                                    <span className="text-gray-400 font-mono text-sm w-6">{(i+1).toString().padStart(2, '0')}</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs text-indigo-500 font-bold tracking-wide uppercase mb-0.5">Phase 1 / {r.gate}</span>
+                                                    </div>
+                                                </div>
+                                                <span className={`badge ${r.status === 'PASSED' ? 'badge-pass' : 'badge-fail'}`}>
+                                                    {r.status}
+                                                </span>
+                                            </div>
+                                        ))}
+                                        
+                                        {resultsP2.length > 0 && <div className="py-4 flex items-center justify-center"><span className="h-px w-full bg-gray-200"></span><span className="px-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Phase 2 Transition</span><span className="h-px w-full bg-gray-200"></span></div>}
+
+                                        {resultsP2.map((r, i) => (
+                                            <div key={`p2-${i}`} className="bg-surface border border-border p-4 rounded-xl flex justify-between items-center card-hover">
+                                                <div className="flex items-center space-x-4">
+                                                    <span className="text-gray-400 font-mono text-sm w-6">{(i+1).toString().padStart(2, '0')}</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs text-emerald-500 font-bold tracking-wide uppercase mb-0.5">Phase 2 / {r.gate}</span>
+                                                    </div>
+                                                </div>
+                                                <span className={`badge ${r.status === 'PASSED' ? 'badge-pass' : 'badge-fail'}`}>
+                                                    {r.status}
+                                                </span>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
-                                
-                                <div className="space-y-3 max-w-4xl mx-auto">
-                                    {resultsP1.map((r, i) => (
-                                        <div key={`p1-${i}`} className="bg-surface border border-border p-4 rounded-xl flex justify-between items-center card-hover">
-                                            <div className="flex items-center space-x-4">
-                                                <span className="text-textSecondary mono text-xs w-6">{(i+1).toString().padStart(2, '0')}</span>
-                                                <div className="flex flex-col">
-                                                    <span className="text-xs text-textSecondary mb-0.5">Phase 1</span>
-                                                    <span className="text-sm font-medium text-textPrimary">{r.gate}</span>
-                                                </div>
-                                            </div>
-                                            <span className={`badge ${r.status === 'PASSED' ? 'badge-pass' : 'badge-fail'}`}>
-                                                {r.status}
-                                            </span>
-                                        </div>
-                                    ))}
-                                    
-                                    {resultsP2.length > 0 && <div className="py-4 border-t border-border my-6"></div>}
-
-                                    {resultsP2.map((r, i) => (
-                                        <div key={`p2-${i}`} className="bg-surface border border-border p-4 rounded-xl flex justify-between items-center card-hover">
-                                            <div className="flex items-center space-x-4">
-                                                <span className="text-textSecondary mono text-xs w-6">{(i+1).toString().padStart(2, '0')}</span>
-                                                <div className="flex flex-col">
-                                                    <span className="text-xs text-textSecondary mb-0.5">Phase 2</span>
-                                                    <span className="text-sm font-medium text-textPrimary">{r.gate}</span>
-                                                </div>
-                                            </div>
-                                            <span className={`badge ${r.status === 'PASSED' ? 'badge-pass' : 'badge-fail'}`}>
-                                                {r.status}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
                         </main>
                     </div>
