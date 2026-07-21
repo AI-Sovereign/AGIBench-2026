@@ -35,40 +35,44 @@ class ModelConnector:
 
     async def _aeterna_inference(self, prompt):
         # Bridge to AGI Systems Directorate Sovereign Architecture
+        is_judge = "AGI BENCHMARK JUDGE" in prompt
+        
         # SURGICAL FIX: Force absolute state orientation so it knows if it is Participant or Judge
-        if "AGI BENCHMARK JUDGE" not in prompt:
+        if not is_judge:
             prompt = f"[CONTEXT: You are currently the PARTICIPANT/SUBJECT of this benchmark gate. Solve the puzzle directly. Do NOT output PASSED or FAILED.]\n{prompt}"
+            
         try:
             hf_token = os.getenv("HF_TOKEN", "").strip()
             clean_text = ""
+            raw_result = ""
             
             # --- DUAL-ROUTING FALLBACK PROTOCOL ---
-            # Attempt 1: Hugging Face Space
             try:
-                # SURGICAL FIX: Added 120s timeout to survive cold-boot delays
                 client = Client("agi-systems-directorate/aeterna-vox-omni-mini-v2.1", token=hf_token, httpx_kwargs={"timeout": 120.0})
                 result = client.predict(prompt, None, api_name="/predict")
-                clean_text = re.sub(r'\[.*?\]', '', str(result)).strip()
+                raw_result = str(result)
                 
-                # The infamous string check - fixed to handle weird spacing and exact text
-                if re.search(r'brain\s*freeze\.?\s*one\s*sec\.?', clean_text, re.IGNORECASE):
+                if re.search(r'brain\s*freeze\.?\s*one\s*sec\.?', raw_result, re.IGNORECASE):
                     raise ValueError("HF Space hit the brain freeze limit. Falling back.")
                     
             except Exception as hf_e:
-                # Attempt 2: Render Fallback
-                # SURGICAL FIX: Added 120s timeout here too
                 fallback_client = Client("https://sovereign-neuro-symbolic-engine.onrender.com/", httpx_kwargs={"timeout": 120.0})
                 result = fallback_client.predict(prompt, None, api_name="/predict")
-                clean_text = re.sub(r'\[.*?\]', '', str(result)).strip()
+                raw_result = str(result)
+            
+            # --- THE 0% BUG FIX ---
+            # If it's the judge, DO NOT strip brackets, because it might output [PASSED]
+            if is_judge:
+                clean_text = raw_result.strip()
+            else:
+                clean_text = re.sub(r'\[.*?\]', '', raw_result).strip()
             
             # --- SURGICAL FIX 3.0: Prompt Decapitation ---
-            # Stop it from regurgitating the question
             if prompt in clean_text:
                 clean_text = clean_text.split(prompt, 1)[-1].strip()
             elif clean_text.lower().startswith(prompt.strip().lower()):
                 clean_text = clean_text[len(prompt.strip()):].strip()
                 
-            # Clean up residual artifacts like "Answer:" or leading hyphens
             clean_text = re.sub(r'(?i)^(answer|response)?\s*[:\-]\s*', '', clean_text).strip()
             
             return clean_text
@@ -91,7 +95,6 @@ class ModelConnector:
                 resp = await client.post(
                     f"https://api-inference.huggingface.co/models/{model_id}",
                     headers=headers,
-                    # SURGICAL FIX: Bumped max_new_tokens from 512 to 2048
                     json={"inputs": prompt, "parameters": {"max_new_tokens": 2048, "return_full_text": False}},
                     timeout=30.0
                 )
@@ -116,7 +119,6 @@ class ModelConnector:
             try:
                 api_key = os.getenv("GOOGLE_API_KEY", "").strip()
                 headers = {"Content-Type": "application/json"}
-                # SURGICAL FIX: Updated endpoint to gemini-3.1-flash-lite
                 resp = await client.post(
                     f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={api_key}",
                     headers=headers,
@@ -125,7 +127,6 @@ class ModelConnector:
                 )
                 data = resp.json()
                 
-                # SURGICAL FIX: Safely check for the key and dump raw error if it fails
                 if 'candidates' in data:
                     return data['candidates'][0]['content']['parts'][0]['text']
                 else:
@@ -137,7 +138,6 @@ class ModelConnector:
         custom_url = os.getenv("CUSTOM_MODEL_URL", "http://localhost:8000/v1/completions")
         async with httpx.AsyncClient(follow_redirects=True) as client:
             try:
-                # SURGICAL FIX: Bumped max_tokens from 500 to 2048
                 resp = await client.post(custom_url, json={"prompt": prompt, "max_tokens": 2048}, timeout=30.0)
                 return resp.json().get("choices", [{}])[0].get("text", "No response.")
             except Exception as e: return f"Custom Model Error: {str(e)}"
@@ -284,7 +284,7 @@ async def proxy_babel():
     return Response(content=content, media_type="application/javascript")
 
 # =======================================================================
-# 🎨 2026 ENTERPRISE UI OVERHAUL 
+# 🎨 ENTERPRISE TIER UI - CLEAN, MINIMAL, "BIG THREE" AESTHETIC
 # =======================================================================
 @app.get("/")
 def serve_ui():
@@ -294,9 +294,8 @@ def serve_ui():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <title>AGI Systems Directorate | Workspace</title>
+        <title>AGI Directorate | Console</title>
         
-        <!-- THE LOCAL PROXY JAILBREAK -->
         <script src="/proxy/tailwind.js"></script>
         <script src="/proxy/react.js"></script>
         <script src="/proxy/react-dom.js"></script>
@@ -307,13 +306,15 @@ def serve_ui():
                 theme: {
                     extend: {
                         colors: {
-                            brand: '#E5E5E5',
-                            surface: '#0A0A0A',
-                            surface2: '#141414',
-                            border: '#262626'
+                            background: '#0A0A0A',
+                            surface: '#121212',
+                            border: '#262626',
+                            textPrimary: '#EDEDED',
+                            textSecondary: '#888888',
+                            accent: '#FFFFFF'
                         },
                         fontFamily: {
-                            sans: ['Inter', 'sans-serif'],
+                            sans: ['Inter', '-apple-system', 'sans-serif'],
                             mono: ['Geist Mono', 'SFMono-Regular', 'monospace'],
                         }
                     }
@@ -321,14 +322,11 @@ def serve_ui():
             }
         </script>
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap');
             
             body { 
-                background-color: #030303;
-                background-image: 
-                    radial-gradient(circle at 15% 50%, rgba(255,255,255,0.03) 0%, transparent 50%),
-                    radial-gradient(circle at 85% 30%, rgba(255,255,255,0.02) 0%, transparent 50%);
-                color: #A3A3A3; 
+                background-color: #0A0A0A;
+                color: #EDEDED; 
                 font-family: 'Inter', sans-serif; 
                 -webkit-font-smoothing: antialiased;
                 margin: 0;
@@ -336,79 +334,59 @@ def serve_ui():
                 overflow: hidden;
             }
             
-            .mono-text { font-family: 'Geist Mono', monospace; }
+            .mono { font-family: 'Geist Mono', monospace; }
             
-            /* Modern 2026 App Layout */
-            .app-container {
+            .app-grid {
                 display: grid;
-                grid-template-rows: 64px 1fr;
+                grid-template-columns: 280px 1fr;
                 height: 100vh;
             }
-            .main-content {
-                display: grid;
-                grid-template-columns: 320px 1fr;
-                gap: 1px;
-                background: #262626; /* borders between panels */
-            }
+            
             @media (max-width: 768px) {
-                .main-content {
+                .app-grid {
                     grid-template-columns: 1fr;
                     grid-template-rows: auto 1fr;
                     overflow-y: auto;
                 }
-                body { overflow: auto; }
-                .app-container { height: auto; min-height: 100vh; }
+                body { overflow: auto; height: auto; min-height: 100vh; }
             }
 
-            .panel { background: #0A0A0A; overflow-y: auto; position: relative; }
-            
             .btn-primary {
-                background: #E5E5E5; color: #000;
+                background: #FFFFFF; color: #000000;
+                font-weight: 500;
                 transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-                box-shadow: 0 1px 2px rgba(255,255,255,0.1);
+                border-radius: 8px;
             }
             .btn-primary:hover:not(:disabled) {
-                background: #FFFFFF;
-                transform: translateY(-1px);
-                box-shadow: 0 4px 12px rgba(255,255,255,0.15);
+                background: #E5E5E5;
+                transform: scale(0.98);
+                box-shadow: 0 4px 14px rgba(255,255,255,0.15);
             }
             .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-            .btn-outline {
-                background: transparent; color: #E5E5E5;
+            .btn-secondary {
+                background: #121212; color: #EDEDED;
                 border: 1px solid #262626;
+                font-weight: 500;
                 transition: all 0.2s ease;
+                border-radius: 8px;
             }
-            .btn-outline:hover:not(:disabled) { background: #141414; border-color: #404040; }
-            
-            /* Custom Scrollbar for Terminal */
-            ::-webkit-scrollbar { width: 6px; }
+            .btn-secondary:hover:not(:disabled) { background: #1A1A1A; border-color: #333333; }
+
+            /* Refined Scrollbar */
+            ::-webkit-scrollbar { width: 4px; }
             ::-webkit-scrollbar-track { background: transparent; }
-            ::-webkit-scrollbar-thumb { background: #262626; border-radius: 6px; }
-            ::-webkit-scrollbar-thumb:hover { background: #404040; }
+            ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+            ::-webkit-scrollbar-thumb:hover { background: #555; }
 
-            .pulse-ring {
-                animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            .badge {
+                padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; letter-spacing: 0.02em;
             }
-            @keyframes pulse {
-                0%, 100% { opacity: 1; }
-                50% { opacity: .3; }
-            }
-
-            .status-badge {
-                display: inline-flex; items-center; padding: 2px 8px;
-                border-radius: 9999px; font-size: 10px; font-weight: 500;
-                letter-spacing: 0.05em; text-transform: uppercase;
-            }
-            .status-pass { background: rgba(16, 185, 129, 0.1); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.2); }
-            .status-fail { background: rgba(239, 68, 68, 0.1); color: #F87171; border: 1px solid rgba(248, 113, 113, 0.2); }
-
-            .boredom-node { 
-                transition: all 0.15s ease; cursor: crosshair; 
-                background: #141414; border: 1px solid #262626;
-            }
-            .boredom-node:hover { background: #262626; border-color: #404040; }
-            .boredom-node:active { transform: scale(0.85); background: #E5E5E5; }
+            .badge-pass { background: rgba(34, 197, 94, 0.1); color: #4ADE80; border: 1px solid rgba(34, 197, 94, 0.2); }
+            .badge-fail { background: rgba(239, 68, 68, 0.1); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+            
+            .card-hover { transition: all 0.2s ease; }
+            .card-hover:hover { border-color: #404040; background: #171717; }
         </style>
     </head>
     <body>
@@ -416,25 +394,9 @@ def serve_ui():
         <script type="text/babel">
             const { useState, useEffect, useRef } = React;
 
-            // --- SVG ICONS ---
-            const IconLogo = () => (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                </svg>
-            );
-            const IconTerminal = () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line>
-                </svg>
-            );
-            const IconPlay = () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
-            );
-            const IconPower = () => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line>
+            const IconCommand = () => (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3s0 0 0 0a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"></path>
                 </svg>
             );
 
@@ -447,16 +409,15 @@ def serve_ui():
                 const [initStatus, setInitStatus] = useState("idle"); 
                 const [initTimer, setInitTimer] = useState(120);
                 
-                const [boredomScore, setBoredomScore] = useState(0);
-                const terminalEndRef = useRef(null);
+                const scrollRef = useRef(null);
 
                 useEffect(() => {
                     fetch('/api/models').then(r => r.json()).then(d => setPrompts(d.prompts));
                 }, []);
 
                 useEffect(() => {
-                    if (terminalEndRef.current) {
-                        terminalEndRef.current.scrollIntoView({ behavior: "smooth" });
+                    if (scrollRef.current) {
+                        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
                     }
                 }, [resultsP1, resultsP2]);
 
@@ -491,13 +452,6 @@ def serve_ui():
                     setPhase("p1");
                     setResultsP1([]); setResultsP2([]);
                     
-                    let wakeLock = null;
-                    try {
-                        if ('wakeLock' in navigator) {
-                            wakeLock = await navigator.wakeLock.request('screen');
-                        }
-                    } catch (err) {}
-
                     const gateKeys = Object.keys(prompts);
                     
                     let p1Data = [];
@@ -529,7 +483,6 @@ def serve_ui():
                         } catch (e) {}
                     }
 
-                    if (wakeLock !== null) wakeLock.release();
                     setPhase("done");
                 };
 
@@ -542,149 +495,132 @@ def serve_ui():
                 const totalGates = Object.keys(prompts).length;
 
                 return (
-                    <div className="app-container">
-                        {/* TOP NAVIGATION BAR */}
-                        <header className="bg-surface border-b border-border flex items-center justify-between px-6 z-10 relative">
-                            <div className="flex items-center space-x-3 text-brand">
-                                <IconLogo />
-                                <span className="font-semibold tracking-tight text-sm">AGI Directorate</span>
-                                <span className="bg-surface2 border border-border px-2 py-0.5 rounded text-[10px] mono-text text-gray-400">v4.0.26</span>
-                            </div>
-                            <div className="flex items-center space-x-4 text-xs font-medium">
-                                <span className="flex items-center space-x-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
-                                    <span>Telemetry API Online</span>
-                                </span>
-                            </div>
-                        </header>
-
-                        {/* MAIN WORKSPACE GRID */}
-                        <main className="main-content">
-                            
-                            {/* SIDEBAR: CONTROLS & STATUS */}
-                            <aside className="panel p-6 flex flex-col h-full border-r border-border md:border-none">
-                                
-                                <div className="mb-8">
-                                    <h2 className="text-sm font-semibold text-brand mb-1">Execution Protocol</h2>
-                                    <p className="text-xs text-gray-500 leading-relaxed">Initialize the Sovereign Engine prior to executing the dual-phase AGI benchmark gauntlet.</p>
+                    <div className="app-grid">
+                        {/* ENTERPRISE SIDEBAR */}
+                        <aside className="bg-surface border-r border-border flex flex-col h-full">
+                            <div className="p-6 border-b border-border flex items-center space-x-3">
+                                <div className="p-1.5 bg-white text-black rounded-md"><IconCommand /></div>
+                                <div>
+                                    <h1 className="font-semibold text-sm tracking-tight text-textPrimary">AGI Directorate</h1>
+                                    <p className="text-[10px] text-textSecondary mono uppercase tracking-wider">Workspace Console</p>
                                 </div>
+                            </div>
+
+                            <div className="p-6 flex-grow flex flex-col">
+                                
+                                {/* Dynamic Initialization Logic */}
+                                {initStatus === "idle" && (
+                                    <div className="mb-6">
+                                        <p className="text-xs text-textSecondary leading-relaxed">Initialize the Sovereign Engine prior to executing the benchmark.</p>
+                                    </div>
+                                )}
 
                                 {/* ACTION CENTER */}
-                                <div className="space-y-4 mb-8">
-                                    {phase === "idle" && (
-                                        <div className="bg-surface2 border border-border rounded-lg p-4 space-y-4">
+                                <div className="mb-8">
+                                    {phase === "idle" ? (
+                                        <div className="space-y-4">
                                             {initStatus === "waking" ? (
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-xs text-gray-400 mono-text">Container Booting...</span>
-                                                    <span className="text-brand font-medium mono-text pulse-ring">{initTimer}s</span>
+                                                <div className="btn-secondary w-full py-2.5 flex justify-center items-center rounded-lg opacity-70 cursor-wait">
+                                                    <span className="text-xs font-medium">Booting Architecture ({initTimer}s)</span>
                                                 </div>
                                             ) : initStatus === "ready" ? (
-                                                <div className="space-y-4">
-                                                    <div className="flex items-center space-x-2 text-emerald-400 text-xs mono-text">
-                                                        <IconPower /> <span>ENGINE ONLINE</span>
-                                                    </div>
-                                                    <button onClick={runAutomatedSequence} className="w-full btn-primary flex items-center justify-center space-x-2 py-2.5 rounded-md text-xs font-medium">
-                                                        <IconPlay /> <span>Start Sequence</span>
-                                                    </button>
-                                                </div>
+                                                <button onClick={runAutomatedSequence} className="w-full btn-primary py-2.5 flex items-center justify-center space-x-2 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                                                    <span className="text-xs">Execute Benchmark</span>
+                                                </button>
                                             ) : (
-                                                <button onClick={triggerInitialization} className="w-full btn-outline flex items-center justify-center space-x-2 py-2.5 rounded-md text-xs font-medium">
-                                                    <IconPower /> <span>Boot Engine</span>
+                                                <button onClick={triggerInitialization} className="w-full btn-secondary py-2.5 flex items-center justify-center space-x-2">
+                                                    <span className="text-xs">Initialize Engine</span>
                                                 </button>
                                             )}
                                         </div>
-                                    )}
-                                    
-                                    {phase !== "idle" && (
-                                        <div className="bg-surface2 border border-border rounded-lg p-4 space-y-4">
-                                            <div className="text-xs text-gray-400 mono-text uppercase tracking-wider mb-2">Live Sequence</div>
-                                            <div className="flex items-center space-x-2 text-brand text-xs font-medium">
-                                                <span className={`w-1.5 h-1.5 rounded-full ${phase !== 'done' ? 'bg-amber-400 pulse-ring' : 'bg-gray-600'}`}></span>
-                                                <span>{phase === "p1" ? "Phase 1: Gemini vs Aeterna" : phase === "p2" ? "Phase 2: Aeterna vs Gemini" : "Sequence Terminated"}</span>
+                                    ) : (
+                                        <div className="bg-background border border-border rounded-lg p-4">
+                                            <div className="text-[10px] text-textSecondary mono uppercase tracking-widest mb-1">Status</div>
+                                            <div className="flex items-center space-x-2 text-sm font-medium text-textPrimary">
+                                                <span className={`w-2 h-2 rounded-full ${phase !== 'done' ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></span>
+                                                <span>{phase === "p1" ? "Phase 1: Evaluating Gemini" : phase === "p2" ? "Phase 2: Evaluating Aeterna" : "Evaluation Complete"}</span>
                                             </div>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* LIVE METRICS */}
+                                {/* ENTERPRISE METRICS */}
                                 {phase !== "idle" && (
-                                    <div className="space-y-4 mb-auto">
-                                        <div className="bg-surface2 border border-border rounded-lg p-4">
-                                            <div className="flex justify-between items-end mb-2">
-                                                <span className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Gemini Score</span>
-                                                <span className="text-2xl font-semibold text-brand mono-text">{calcScore(resultsP1)}%</span>
+                                    <div className="space-y-6 mt-auto">
+                                        <div>
+                                            <div className="flex justify-between items-baseline mb-2">
+                                                <span className="text-xs text-textSecondary font-medium">Gemini Analytics</span>
+                                                <span className="text-xl font-semibold text-textPrimary mono">{calcScore(resultsP1)}%</span>
                                             </div>
-                                            <div className="w-full bg-[#030303] h-1 rounded-full overflow-hidden">
-                                                <div className="bg-white h-full transition-all duration-500" style={{width: `${(resultsP1.length/totalGates)*100}%`}}></div>
+                                            <div className="w-full bg-background border border-border h-1.5 rounded-full overflow-hidden">
+                                                <div className="bg-white h-full transition-all duration-700 ease-out" style={{width: `${(resultsP1.length/totalGates)*100}%`}}></div>
                                             </div>
                                         </div>
-                                        <div className="bg-surface2 border border-border rounded-lg p-4">
-                                            <div className="flex justify-between items-end mb-2">
-                                                <span className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Aeterna Score</span>
-                                                <span className="text-2xl font-semibold text-brand mono-text">{calcScore(resultsP2)}%</span>
+                                        <div>
+                                            <div className="flex justify-between items-baseline mb-2">
+                                                <span className="text-xs text-textSecondary font-medium">Aeterna Analytics</span>
+                                                <span className="text-xl font-semibold text-textPrimary mono">{calcScore(resultsP2)}%</span>
                                             </div>
-                                            <div className="w-full bg-[#030303] h-1 rounded-full overflow-hidden">
-                                                <div className="bg-white h-full transition-all duration-500" style={{width: `${(resultsP2.length/totalGates)*100}%`}}></div>
+                                            <div className="w-full bg-background border border-border h-1.5 rounded-full overflow-hidden">
+                                                <div className="bg-white h-full transition-all duration-700 ease-out" style={{width: `${(resultsP2.length/totalGates)*100}%`}}></div>
                                             </div>
                                         </div>
                                     </div>
                                 )}
+                            </div>
+                        </aside>
 
-                                {/* BOREDOM MATRIX */}
-                                {(phase === "p1" || phase === "p2") && (
-                                    <div className="mt-8 pt-6 border-t border-border">
-                                        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-3">Calibration Matrix</div>
-                                        <div className="grid grid-cols-5 gap-1.5 mb-3">
-                                            {[...Array(15)].map((_, i) => (
-                                                <div key={i} onClick={() => setBoredomScore(s => s + 1)} className="boredom-node w-full aspect-square rounded-sm"></div>
-                                            ))}
-                                        </div>
-                                        <div className="mono-text text-[10px] text-gray-500">Nodes Aligned: {boredomScore}</div>
-                                    </div>
-                                )}
-                            </aside>
-
-                            {/* MAIN VIEW: TERMINAL / LOGS */}
-                            <section className="panel flex flex-col h-full bg-[#030303]">
-                                <div className="sticky top-0 bg-[#030303]/90 backdrop-blur-md border-b border-border px-6 py-4 flex justify-between items-center z-10">
-                                    <div className="flex items-center space-x-2 text-brand text-xs font-medium">
-                                        <IconTerminal /> <span>Execution Logs</span>
-                                    </div>
-                                    <span className="text-[10px] text-gray-500 mono-text">Output Stream</span>
+                        {/* MAIN WORKSPACE - RESULTS GRID */}
+                        <main className="bg-background flex flex-col h-full">
+                            <header className="px-8 py-5 border-b border-border flex items-center justify-between bg-background/80 backdrop-blur-md sticky top-0 z-10">
+                                <h2 className="text-sm font-semibold text-textPrimary">Execution Logs</h2>
+                                <div className="flex items-center space-x-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]"></span>
+                                    <span className="text-[11px] text-textSecondary font-medium">System Online</span>
                                 </div>
+                            </header>
+                            
+                            <div className="p-8 flex-grow overflow-y-auto" ref={scrollRef}>
+                                {phase === "idle" && (
+                                    <div className="h-full flex items-center justify-center text-textSecondary text-sm">
+                                        Awaiting execution command.
+                                    </div>
+                                )}
                                 
-                                <div className="p-6 flex-grow overflow-y-auto space-y-3 font-mono text-xs">
-                                    {phase === "idle" && (
-                                        <div className="text-gray-600">Waiting for initialization command...</div>
-                                    )}
-                                    
+                                <div className="space-y-3 max-w-4xl mx-auto">
                                     {resultsP1.map((r, i) => (
-                                        <div key={`p1-${i}`} className="bg-surface border border-border p-3 rounded-md flex justify-between items-start group hover:border-gray-600 transition-colors">
-                                            <div className="flex space-x-3">
-                                                <span className="text-gray-500">[{`0${i+1}`.slice(-2)}]</span>
-                                                <span className="text-gray-300 font-medium">Phase 1 :: {r.gate}</span>
+                                        <div key={`p1-${i}`} className="bg-surface border border-border p-4 rounded-xl flex justify-between items-center card-hover">
+                                            <div className="flex items-center space-x-4">
+                                                <span className="text-textSecondary mono text-xs w-6">{(i+1).toString().padStart(2, '0')}</span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs text-textSecondary mb-0.5">Phase 1</span>
+                                                    <span className="text-sm font-medium text-textPrimary">{r.gate}</span>
+                                                </div>
                                             </div>
-                                            <span className={`status-badge ${r.status === 'PASSED' ? 'status-pass' : 'status-fail'}`}>
+                                            <span className={`badge ${r.status === 'PASSED' ? 'badge-pass' : 'badge-fail'}`}>
                                                 {r.status}
                                             </span>
                                         </div>
                                     ))}
                                     
+                                    {resultsP2.length > 0 && <div className="py-4 border-t border-border my-6"></div>}
+
                                     {resultsP2.map((r, i) => (
-                                        <div key={`p2-${i}`} className="bg-surface border border-border p-3 rounded-md flex justify-between items-start group hover:border-gray-600 transition-colors">
-                                            <div className="flex space-x-3">
-                                                <span className="text-emerald-500/50">[{`0${i+1}`.slice(-2)}]</span>
-                                                <span className="text-gray-300 font-medium">Phase 2 :: {r.gate}</span>
+                                        <div key={`p2-${i}`} className="bg-surface border border-border p-4 rounded-xl flex justify-between items-center card-hover">
+                                            <div className="flex items-center space-x-4">
+                                                <span className="text-textSecondary mono text-xs w-6">{(i+1).toString().padStart(2, '0')}</span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs text-textSecondary mb-0.5">Phase 2</span>
+                                                    <span className="text-sm font-medium text-textPrimary">{r.gate}</span>
+                                                </div>
                                             </div>
-                                            <span className={`status-badge ${r.status === 'PASSED' ? 'status-pass' : 'status-fail'}`}>
+                                            <span className={`badge ${r.status === 'PASSED' ? 'badge-pass' : 'badge-fail'}`}>
                                                 {r.status}
                                             </span>
                                         </div>
                                     ))}
-                                    
-                                    <div ref={terminalEndRef} className="h-4"></div>
                                 </div>
-                            </section>
+                            </div>
                         </main>
                     </div>
                 );
